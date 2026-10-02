@@ -1,0 +1,14 @@
+{
+  "name": "write-better",
+  "description": "Careful report writing and style learning from your feedback.",
+  "owner": {
+    "name": "yoshi74ls181"
+  },
+  "plugins": [
+    {
+      "name": "write-better",
+      "source": "./",
+      "description": "compose-report and style-feedback skills sharing one writing-style file."
+    }
+  ]
+}
