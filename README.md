@@ -12,9 +12,11 @@ A Claude Code plugin with two skills that share one writing-style file. Each ski
 In Claude Code:
 
 ```
-/plugin marketplace add C:\Users\slab\git\write-better
+/plugin marketplace add yoshi74ls181/write-better
 /plugin install write-better@write-better
 ```
+
+The first command registers this repo as a plugin marketplace; the second installs the plugin from it. To work from a local clone instead, pass its path to `/plugin marketplace add`.
 
 Requirements: Python 3.8+ (standard library only) and any modern browser.
 
