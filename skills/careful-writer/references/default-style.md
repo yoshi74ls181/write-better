@@ -3,16 +3,16 @@
 This baseline applies only when the user has no style file yet. The `style-feedback` skill creates the real one at `~/.claude/writing-style.md` and can start from a copy of this file.
 
 ## Reader & voice
-- Default reader: a capable colleague outside this project who has not seen the research.
+- Default reader: a capable colleague outside this project who has not seen the research or the conversation.
 - Voice: plain and direct. Use the active voice by default.
 - Language/locale: follow the user's language and spelling conventions.
 
 ## Rules
 
 ### R1. Lead with the answer
-- **Rule:** The first paragraph states the main finding or recommendation. Background comes after.
+- **Rule:** The opening states the main finding, recommendation, or request. Background comes after.
 - **Why:** Readers often stop early, so the most important thing must come first.
-- **Bad → Good:** "This report examines several factors…" → "Switching to X cuts build time by 40%; the rest of this report explains why."
+- **Bad → Good:** "This report examines several factors…" → "Switching to X cuts build time by 40%; the rest of this note explains why."
 - **Source:** baseline
 
 ### R2. Define before use

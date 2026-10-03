@@ -1,6 +1,6 @@
 # Revision checklists
 
-Apply these by **reading the text from the file**, as someone who has only the page in front of them. If you notice you are filling a gap from your own knowledge of the research, that gap is a defect. Fix it on the page.
+Apply these by **reading the text from the file**, as someone who has only the page in front of them. If you notice you are filling a gap from your own knowledge of the research or the conversation, that gap is a defect. Fix it on the page.
 
 User style rules always win over this list when the two conflict.
 
@@ -28,18 +28,18 @@ User style rules always win over this list when the two conflict.
 - **Length.** It is not a wall of text. Split it if it covers two ideas; merge it if it is a stub.
 - **Earlier text still fits.** The new paragraph has not made an earlier sentence in the section wrong, redundant, or out of order.
 
-## Section checks (re-read the whole report after every section)
+## Section checks (re-read the whole piece after every section)
 
 - **Purpose served.** The section does what the outline says, and the reader could summarize it in one sentence.
-- **Consistent terms.** The same thing has the same name everywhere. Terms are defined once, at first use in the whole report.
+- **Consistent terms.** The same thing has the same name everywhere. Terms are defined once, at first use in the whole piece.
 - **Forward and backward fit.** Earlier sections set up what this section needs, and nothing here contradicts or silently repeats them. Update earlier sections if the new section changed what they should say.
 - **Ordering.** The sections still come in the best order for building understanding.
 - **Proportion.** Space matches importance. The main finding isn't buried and minor points don't sprawl.
-- **Headings.** The headings tell a skimming reader the story of the report.
-- **Front matter.** The opening (title, summary, or first paragraph) still states the main finding and fits what the report now says.
+- **Headings.** The headings tell a skimming reader the story of the piece.
+- **Front matter.** The opening (title, summary, or first paragraph) still states the main point or ask and fits what the piece now says.
 
 ## Fresh-reader prompt (Step 3)
 
-> Read the file at `<path>`. You are a first-time reader: <audience from notes>. You know nothing beyond what is on the page. List every place where you (a) had to re-read, (b) met a term, acronym, or name you could not interpret, (c) could not tell what a pronoun or "this" referred to, (d) could not see why a sentence followed the previous one, (e) doubted a claim or could not tell its basis, or (f) lost the thread of the argument. Quote the exact text for each and say in one line what confused you. Do not rewrite anything. Finish with one sentence on what you think the report's main point is.
+> Read the file at `<path>`. You are a first-time reader: <audience from notes>. You know nothing beyond what is on the page. List every place where you (a) had to re-read, (b) met a term, acronym, or name you could not interpret, (c) could not tell what a pronoun or "this" referred to, (d) could not see why a sentence followed the previous one, (e) doubted a claim or could not tell its basis, or (f) lost the thread of the argument, or (g) could not tell what you were being asked to do, if anything. Quote the exact text for each and say in one line what confused you. Do not rewrite anything. Finish with one sentence on what you think the piece's main point is.
 
-Compare that last sentence with the **Purpose** in the notes. If they differ, the report does not yet say what you meant.
+Compare that last sentence with the **Purpose** in the notes. If they differ, the piece does not yet say what you meant.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Highlight-and-comment feedback GUI for a markdown report.
+"""Highlight-and-comment feedback GUI for a markdown document.
 
 The browser and the agent never talk directly. They share a session directory:
 
@@ -11,7 +11,7 @@ The browser and the agent never talk directly. They share a session directory:
     DIR/done               created when the user clicks Finish
 
 Subcommands:
-    serve --report R --session DIR [--port 0] [--no-browser]
+    serve --document PATH --session DIR [--port 0] [--no-browser]
     next  --session DIR [--timeout 540]   block until a highlight needs guesses
     stop  --session DIR                   shut the server down
 
@@ -195,7 +195,7 @@ class Session:
 # HTTP server
 # --------------------------------------------------------------------------
 
-def make_handler(session, report_path):
+def make_handler(session, doc_path):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):  # keep the agent's background output quiet
             pass
@@ -226,9 +226,9 @@ def make_handler(session, report_path):
             path = self.path.split("?", 1)[0]
             if path == "/":
                 self._send(200, (HERE / "ui.html").read_bytes(), "text/html; charset=utf-8")
-            elif path == "/report":
-                src = Path(report_path).read_text(encoding="utf-8")
-                self._json({"name": Path(report_path).name, "html": render_markdown(src)})
+            elif path == "/doc":
+                src = Path(doc_path).read_text(encoding="utf-8")
+                self._json({"name": Path(doc_path).name, "html": render_markdown(src)})
             elif path == "/state":
                 beat = session.heartbeat.stat().st_mtime if session.heartbeat.exists() else None
                 self._json({
@@ -312,15 +312,15 @@ def make_handler(session, report_path):
 
 
 def cmd_serve(args):
-    report = Path(args.report).resolve()
-    if not report.is_file():
-        sys.exit("report not found: %s" % report)
+    doc = Path(args.document).resolve()
+    if not doc.is_file():
+        sys.exit("document not found: %s" % doc)
     session = Session(args.session)
     session.init()
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(session, report))
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(session, doc))
     url = "http://127.0.0.1:%d/" % server.server_address[1]
     _write_json(session.info_path, {"url": url, "port": server.server_address[1],
-                                    "pid": os.getpid(), "report": str(report)})
+                                    "pid": os.getpid(), "document": str(doc)})
     print("Feedback GUI: %s" % url, flush=True)
     print("Session dir:  %s" % session.root, flush=True)
     if not args.no_browser:
@@ -391,7 +391,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("serve", help="start the feedback GUI")
-    s.add_argument("--report", required=True)
+    s.add_argument("--document", required=True)
     s.add_argument("--session", required=True)
     s.add_argument("--port", type=int, default=0)
     s.add_argument("--no-browser", action="store_true")

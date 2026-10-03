@@ -1,22 +1,22 @@
 ---
 name: style-feedback
-description: Collect the user's feedback on a written report through a local browser GUI. The user highlights words or sentences, the agent guesses the likely comment live (offered in an editable drop-down), and afterwards the comments become report edits and lasting rules in the user's writing-style file (~/.claude/writing-style.md), which the compose-report skill reads. Use when the user wants to review, mark up, or give feedback on a report, or wants to teach or update their writing style.
+description: Collect the user's feedback on a piece of writing (a report, paper, proposal, doc, email draft, or any other text) through a local browser GUI. The user highlights words or sentences, the agent guesses the likely comment live (offered in an editable drop-down), and afterwards the comments become edits to the text and lasting rules in the user's writing-style file (~/.claude/writing-style.md), which the careful-writer skill reads. Use when the user wants to review, mark up, or give feedback on something written, or wants to teach or update their writing style.
 ---
 
 # style-feedback
 
-You run a highlight-and-comment session on a markdown report. The user does the reading and judging; your job is to **guess their comment quickly and well**, so most of the time they just pick a guess or tweak one. At the end you turn what they said into (a) fixes to this report and (b) rules in the style file, so the next report needs less feedback.
+You run a highlight-and-comment session on a piece of writing, rendered from markdown. The user does the reading and judging; your job is to **guess their comment quickly and well**, so most of the time they just pick a guess or tweak one. At the end you turn what they said into (a) fixes to this piece and (b) rules in the style file, so the next piece needs less feedback.
 
 `<skill-dir>` below means this skill's base directory, shown when the skill loads. Use `python` on Windows and `python3` elsewhere if `python` is missing.
 
 ## Step 1: Set up
 
-1. **Report**: the path the user names, or else the report you just wrote. If it isn't markdown, convert it to a `.md` copy first and say so.
+1. **Document**: the path the user names, or else the piece you just wrote. If it isn't markdown (LaTeX, plain text, `.docx`, and so on), convert it to a `.md` copy first and say so; apply the fixes to the original afterward. If the text isn't in a file at all (an email draft, a pasted passage), save it to a `.md` file first.
 2. **Style file**: an explicit path from the user, then `$WRITING_STYLE_FILE`, then `~/.claude/writing-style.md`. Read it now if it exists. You'll use its rules as guess material, and you won't re-read it during the loop. Read `references/style-file-format.md` too.
-3. **Session dir**: `<report-dir>/<report-stem>.feedback/`. Reusing an existing dir keeps the earlier comments and starts a new round.
+3. **Session dir**: `<doc-dir>/<doc-stem>.feedback/`. Reusing an existing dir keeps the earlier comments and starts a new round.
 4. Start the server **in the background** (Bash with `run_in_background: true`):
    ```
-   python "<skill-dir>/scripts/feedback_server.py" serve --report "<report>" --session "<session-dir>"
+   python "<skill-dir>/scripts/feedback_server.py" serve --document "<document>" --session "<session-dir>"
    ```
    It opens the browser itself. Read `<session-dir>/server.json` for the URL and give it to the user in one line: "Select text to comment; I'll suggest comments; click **Finish & send** when done."
 
@@ -49,18 +49,18 @@ Repeat until the session is done:
 Read `<session-dir>/comments.json`. Each item has `text`, `paragraph`, `section`, `comment`, `source`, and the `guesses` you offered.
 
 Sort every comment into one of two kinds:
-- **(a) Report-only**: a fix that only makes sense for this report (a wrong fact, a missing result, "move this to the intro").
+- **(a) This piece only**: a fix that only makes sense for this text (a wrong fact, a missing result, "move this to the intro").
 - **(b) Style preference**: something that should apply to future writing too ("don't use 'leverage'", "define acronyms", "too hedgy"). One comment can be both.
 
 For (b), group comments that express the same preference and draft one rule per group in the style-file format: **Rule**, **Why**, **Bad → Good** (from the user's actual highlight), and **Source**. For each rule, decide whether it's **new**, **reinforces** an existing rule (add a source and maybe an example), or **conflicts** with one (rewrite the old rule; don't keep both).
 
-Show the user one compact summary: the report fixes as a list, and the style changes as new, reinforced, or changed rules. Note your guess hit rate (how many comments were a picked guess, an edited guess, or own words). It's useful feedback for you, and the user may find it interesting.
+Show the user one compact summary: the fixes to the piece as a list, and the style changes as new, reinforced, or changed rules. Note your guess hit rate (how many comments were a picked guess, an edited guess, or own words). It's useful feedback for you, and the user may find it interesting.
 
 ## Step 4: Apply
 
-1. **Report edits.** Ask whether to apply the fixes (default: yes, both (a) and the (b) violations found in this report). Revise carefully: if the `compose-report` skill is available, follow its "Revising an existing report" discipline. In any case, re-read the paragraph after each changed sentence and the whole report at the end. Don't touch text the user didn't comment on unless a style rule clearly applies.
-2. **Style file.** Show the proposed change as a diff, or as the full new file if it's being created. If the file doesn't exist yet, start from `<skill-dir>/../compose-report/references/default-style.md` if the user wants the baseline rules, or else from just the header sections. Write it **only after the user confirms**. Keep the file tight: merge, don't append duplicates.
-3. Offer another round, where the user reviews the revised report the same way. If they accept, restart the server against the same session dir (the old comments stay visible in the sidebar) and repeat Step 2.
+1. **Edits to the piece.** Ask whether to apply the fixes (default: yes, both (a) and the (b) violations found in this piece). Revise carefully: if the `careful-writer` skill is available, follow its "Revising existing text" discipline. In any case, re-read the paragraph after each changed sentence and the whole piece at the end. Don't touch text the user didn't comment on unless a style rule clearly applies.
+2. **Style file.** Show the proposed change as a diff, or as the full new file if it's being created. If the file doesn't exist yet, start from `<skill-dir>/../careful-writer/references/default-style.md` if the user wants the baseline rules, or else from just the header sections. Write it **only after the user confirms**. Keep the file tight: merge, don't append duplicates.
+3. Offer another round, where the user reviews the revised piece the same way. If they accept, restart the server against the same session dir (the old comments stay visible in the sidebar) and repeat Step 2.
 
 ## Step 5: Clean up
 
@@ -72,4 +72,4 @@ Keep `comments.json` (it's the user's record) unless the user asks to remove the
 ## Notes
 - The GUI lets the user type their own comment before your guesses arrive. If a highlight gets a comment first, `next` stops returning it, so you never waste a turn on it.
 - The header shows "agent listening" while `next` is waiting. If the loop stalls (for example, you were interrupted), just run `next` again. Queued highlights are kept.
-- Using this skill alone, without compose-report, works: any markdown file can be reviewed, and the style file is still updated.
+- Using this skill alone, without careful-writer, works: any markdown file can be reviewed, and the style file is still updated.

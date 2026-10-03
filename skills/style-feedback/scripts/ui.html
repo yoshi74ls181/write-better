@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Report feedback</title>
+<title>Writing feedback</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root {
@@ -31,17 +31,17 @@
   button.link:hover { color: var(--danger); }
   main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px;
          max-width: 1240px; margin: 0 auto; padding: 20px; }
-  #report { background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+  #doc { background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
             padding: 36px 48px; font: 17px/1.65 Georgia, "Iowan Old Style", "Times New Roman", serif; }
-  #report h1, #report h2, #report h3, #report h4 { font-family: system-ui, "Segoe UI", sans-serif; line-height: 1.25; }
-  #report h1 { font-size: 28px; margin-top: 0; }
-  #report pre { background: #f3f2ef; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
-  #report code { font-family: ui-monospace, Consolas, monospace; font-size: .88em; }
-  #report table { border-collapse: collapse; margin: 1em 0; font-size: 15px; }
-  #report th, #report td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
-  #report blockquote { margin: 1em 0; padding-left: 14px; border-left: 3px solid var(--line); color: #444; }
-  #report li.sub { margin-left: 1.6em; }
-  #report ::selection { background: #cfe0ff; }
+  #doc h1, #doc h2, #doc h3, #doc h4 { font-family: system-ui, "Segoe UI", sans-serif; line-height: 1.25; }
+  #doc h1 { font-size: 28px; margin-top: 0; }
+  #doc pre { background: #f3f2ef; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+  #doc code { font-family: ui-monospace, Consolas, monospace; font-size: .88em; }
+  #doc table { border-collapse: collapse; margin: 1em 0; font-size: 15px; }
+  #doc th, #doc td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+  #doc blockquote { margin: 1em 0; padding-left: 14px; border-left: 3px solid var(--line); color: #444; }
+  #doc li.sub { margin-left: 1.6em; }
+  #doc ::selection { background: #cfe0ff; }
   mark.hl { background: var(--mark); color: inherit; border-radius: 2px; cursor: pointer; }
   mark.hl.saved { background: var(--mark-saved); border-bottom: 2px solid #e0a800; }
   mark.hl.active { background: var(--mark-active); }
@@ -103,14 +103,14 @@
 </head>
 <body>
 <header>
-  <h1 id="title">Report feedback</h1>
+  <h1 id="title">Writing feedback</h1>
   <span class="hint">Select any words or sentences to comment on them.</span>
   <span class="spacer"></span>
   <span id="agent"><span class="dot"></span><span id="agent-text">connecting…</span></span>
   <button class="primary" id="finish">Finish &amp; send</button>
 </header>
 <main>
-  <article id="report">Loading…</article>
+  <article id="doc">Loading…</article>
   <aside>
     <h2>Comments <span id="count"></span></h2>
     <div id="list"></div>
@@ -141,7 +141,7 @@
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
-const reportEl = $("report"), pop = $("pop"), opts = $("opts");
+const docEl = $("doc"), pop = $("pop"), opts = $("opts");
 
 // id -> {id, text, paragraph, section, block, start, guesses, rows, sel, comment, source, guessIndex, status}
 const H = new Map();
@@ -209,12 +209,12 @@ function paintMarks() {
 }
 
 // ---------- making a highlight ----------
-reportEl.addEventListener("mouseup", (e) => {
+docEl.addEventListener("mouseup", (e) => {
   if (finished || pop.contains(e.target)) return;
   const sel = window.getSelection();
   if (!sel.rangeCount || sel.isCollapsed) return;
   const range = sel.getRangeAt(0);
-  if (!reportEl.contains(range.commonAncestorContainer)) return;
+  if (!docEl.contains(range.commonAncestorContainer)) return;
   const text = sel.toString().trim();
   if (!text) return;
   const startBlock = blockOf(range.startContainer), endBlock = blockOf(range.endContainer);
@@ -243,7 +243,7 @@ reportEl.addEventListener("mouseup", (e) => {
   renderList();
 });
 
-reportEl.addEventListener("click", (e) => {
+docEl.addEventListener("click", (e) => {
   const m = e.target.closest("mark.hl");
   if (m && window.getSelection().isCollapsed) openPop(m.dataset.id);
 });
@@ -398,7 +398,7 @@ function renderList() {
   const list = $("list"); list.innerHTML = "";
   const items = [...H.values()].sort((a, b) => a.block - b.block || a.start - b.start);
   $("count").textContent = items.length ? `(${items.filter((h) => h.status === "saved").length})` : "";
-  if (!items.length) { list.innerHTML = '<div class="empty">No comments yet. Select text in the report to add one.</div>'; return; }
+  if (!items.length) { list.innerHTML = '<div class="empty">No comments yet. Select text in the document to add one.</div>'; return; }
   for (const h of items) {
     const d = document.createElement("div");
     d.className = "item" + (h.status === "draft" ? " draft" : "") + (h.id === current ? " active" : "");
@@ -443,11 +443,11 @@ $("finish").addEventListener("click", async () => {
   closePop(false); $("overlay").classList.add("open");
 });
 
-// ---------- startup: render report, restore saved comments ----------
+// ---------- startup: render document, restore saved comments ----------
 (async function init() {
-  const rep = await fetch("/report").then((r) => r.json());
-  document.title = "Feedback · " + rep.name; $("title").textContent = rep.name;
-  reportEl.innerHTML = rep.html;
+  const doc = await fetch("/doc").then((r) => r.json());
+  document.title = "Feedback · " + doc.name; $("title").textContent = doc.name;
+  docEl.innerHTML = doc.html;
   const st = await fetch("/state").then((r) => r.json());
   for (const c of st.comments || []) {
     const h = { id: c.id, text: c.text, paragraph: c.paragraph, section: c.section, block: c.block ?? 1e9,
@@ -456,12 +456,12 @@ $("finish").addEventListener("click", async () => {
     if (h.guessIndex >= 0 && h.guessIndex < h.rows.length) { h.rows[h.guessIndex] = c.comment; h.sel = h.guessIndex; }
     else { h.own = c.comment; h.sel = h.rows.length; }
     H.set(h.id, h);
-    // Re-anchor: try the stored offset, then search the block, then the whole report.
-    let block = reportEl.querySelector(`[data-block="${h.block}"]`), s = h.start;
+    // Re-anchor: try the stored offset, then search the block, then the whole document.
+    let block = docEl.querySelector(`[data-block="${h.block}"]`), s = h.start;
     if (!block || block.textContent.slice(s, s + h.text.length) !== h.text) {
       s = block ? block.textContent.indexOf(h.text) : -1;
       if (s < 0) {
-        block = [...reportEl.querySelectorAll("[data-block]")].find((b) => b.textContent.includes(h.text));
+        block = [...docEl.querySelectorAll("[data-block]")].find((b) => b.textContent.includes(h.text));
         s = block ? block.textContent.indexOf(h.text) : -1;
       }
     }

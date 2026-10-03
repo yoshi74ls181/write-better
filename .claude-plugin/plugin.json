@@ -1,7 +1,7 @@
 {
   "name": "write-better",
   "version": "0.1.0",
-  "description": "Write reports the way a careful human writer does, and teach the agent your style through highlight-and-comment feedback.",
+  "description": "Write prose the way a careful human writer does, and teach the agent your style through highlight-and-comment feedback.",
   "author": { "name": "yoshi74ls181" },
   "license": "MIT"
 }
