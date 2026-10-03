@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <title>Writing feedback</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- KaTeX typesets the math. Offline, formulas stay as their TeX source. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <style>
   :root {
     --bg: #f7f6f3; --paper: #fff; --ink: #1f2328; --muted: #6b7280; --line: #e3e1dc;
@@ -42,7 +44,12 @@
   #doc blockquote { margin: 1em 0; padding-left: 14px; border-left: 3px solid var(--line); color: #444; }
   #doc li.sub { margin-left: 1.6em; }
   #doc ::selection { background: #cfe0ff; }
+  #doc .math:not(.typeset) { font-family: ui-monospace, Consolas, monospace; font-size: .88em; white-space: pre-wrap; }
+  #doc .math.display { display: block; margin: .8em 0; overflow-x: auto; text-align: center; }
+  #doc .math.display:not(.typeset) { text-align: left; }
+  #doc .math .katex-display { margin: 0; }
   mark.hl { background: var(--mark); color: inherit; border-radius: 2px; cursor: pointer; }
+  mark.hl:has(> .math.display) { display: block; }
   mark.hl.saved { background: var(--mark-saved); border-bottom: 2px solid #e0a800; }
   mark.hl.active { background: var(--mark-active); }
   aside { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 84px);
@@ -155,10 +162,25 @@ async function api(path, body) {
 }
 const newId = () => "h" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-// ---------- text-node helpers ----------
-function textNodes(root) {
-  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const out = []; let n; while ((n = w.nextNode())) out.push(n); return out;
+// ---------- text helpers ----------
+// A block's text is its text nodes in order, except that each formula (.math)
+// counts as one unit whose text is its TeX source. Highlight offsets, quotes, and
+// paragraphs all use this text, so they don't depend on how KaTeX lays out math.
+function segments(root) {
+  const out = [];
+  (function walk(el) {
+    for (const c of el.childNodes) {
+      if (c.nodeType === 3) out.push({ node: c, len: c.data.length });
+      else if (c.nodeType === 1 && c.classList.contains("math")) out.push({ node: c, math: true, len: c.dataset.src.length });
+      else if (c.nodeType === 1) walk(c);
+    }
+  })(root);
+  return out;
+}
+function textOf(el) {
+  const math = el.closest(".math");
+  if (math) return math.dataset.src;
+  return segments(el).map((s) => s.math ? s.node.dataset.src : s.node.data).join("");
 }
 function blockOf(node) {
   const el = node.nodeType === 1 ? node : node.parentElement;
@@ -170,20 +192,35 @@ function contextOf(node) {
 }
 function sectionOf(block) {
   for (let el = block; el; el = el.previousElementSibling)
-    if (/^H[1-6]$/.test(el.tagName) && el !== block) return el.textContent.trim();
-  return /^H[1-6]$/.test(block.tagName) ? block.textContent.trim() : "";
+    if (/^H[1-6]$/.test(el.tagName) && el !== block) return textOf(el).trim();
+  return /^H[1-6]$/.test(block.tagName) ? textOf(block).trim() : "";
 }
-function offsetIn(block, node, offset) {
-  const r = document.createRange(); r.setStart(block, 0); r.setEnd(node, offset);
-  return r.toString().length;
+// Character offset in textOf(block) of the boundary point (node, offset). A point
+// inside a formula snaps to the formula's start, or to its end when `isEnd`.
+function offsetIn(block, node, offset, isEnd) {
+  const point = document.createRange(); point.setStart(node, offset);
+  let pos = 0;
+  for (const s of segments(block)) {
+    if (s.math ? s.node.contains(node) : s.node === node)
+      return s.math ? pos + (isEnd ? s.len : 0) : pos + offset;
+    const segEnd = s.math ? s.node.childNodes.length : s.len;
+    if (point.comparePoint(s.node, segEnd) > 0) return pos;  // segment ends after the point
+    pos += s.len;
+  }
+  return pos;
 }
-// Wrap [start, end) character range of `block` in <mark> elements.
+// Wrap [start, end) character range of `block` in <mark> elements. A formula the
+// range touches is wrapped whole.
 function wrapRange(block, start, end, id) {
   let pos = 0; const marks = [];
-  for (const t of textNodes(block)) {
-    const len = t.data.length, a = Math.max(start, pos), b = Math.min(end, pos + len);
-    if (a < b) {
-      let node = t;
+  for (const seg of segments(block)) {
+    const len = seg.len, a = Math.max(start, pos), b = Math.min(end, pos + len);
+    if (a < b && seg.math) {
+      const m = document.createElement("mark");
+      m.className = "hl"; m.dataset.id = id;
+      seg.node.parentNode.insertBefore(m, seg.node); m.appendChild(seg.node); marks.push(m);
+    } else if (a < b) {
+      let node = seg.node;
       if (a > pos) node = node.splitText(a - pos);
       if (b < pos + len) node.splitText(b - a);
       const m = document.createElement("mark");
@@ -220,18 +257,19 @@ docEl.addEventListener("mouseup", (e) => {
   const startBlock = blockOf(range.startContainer), endBlock = blockOf(range.endContainer);
   if (!startBlock) return;
   // Highlights that span blocks are clipped to the first block.
-  const start = offsetIn(startBlock, range.startContainer, range.startOffset);
-  const end = startBlock === endBlock ? offsetIn(startBlock, range.endContainer, range.endOffset)
-                                      : startBlock.textContent.length;
-  const raw = startBlock.textContent.slice(start, end);
+  const blockText = textOf(startBlock);
+  const start = offsetIn(startBlock, range.startContainer, range.startOffset, false);
+  const end = startBlock === endBlock ? offsetIn(startBlock, range.endContainer, range.endOffset, true)
+                                      : blockText.length;
+  const raw = blockText.slice(start, end);
   const lead = raw.length - raw.trimStart().length, trail = raw.length - raw.trimEnd().length;
   const s = start + lead, t = end - trail;
   if (t <= s) return;
   sel.removeAllRanges();
   const id = newId();
   const h = {
-    id, text: startBlock.textContent.slice(s, t),
-    paragraph: contextOf(range.startContainer).textContent.trim(),
+    id, text: blockText.slice(s, t),
+    paragraph: textOf(contextOf(range.startContainer)).trim(),
     section: sectionOf(startBlock), block: +startBlock.dataset.block, start: s,
     guesses: null, rows: [], own: "", sel: -1, status: "draft",
   };
@@ -443,11 +481,28 @@ $("finish").addEventListener("click", async () => {
   closePop(false); $("overlay").classList.add("open");
 });
 
+// ---------- math ----------
+// Typeset each formula in place. Marks wrap the .math element from outside, so
+// highlights survive typesetting whether it happens before or after they are made.
+function loadKatex() {
+  if (!docEl.querySelector(".math")) return;
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js";
+  s.onload = () => docEl.querySelectorAll(".math").forEach((el) => {
+    try {
+      katex.render(el.dataset.tex, el, { displayMode: el.classList.contains("display"), throwOnError: false });
+      el.classList.add("typeset");
+    } catch (_) {}  // leave the TeX source showing
+  });
+  document.head.appendChild(s);
+}
+
 // ---------- startup: render document, restore saved comments ----------
 (async function init() {
   const doc = await fetch("/doc").then((r) => r.json());
   document.title = "Feedback · " + doc.name; $("title").textContent = doc.name;
   docEl.innerHTML = doc.html;
+  loadKatex();
   const st = await fetch("/state").then((r) => r.json());
   for (const c of st.comments || []) {
     const h = { id: c.id, text: c.text, paragraph: c.paragraph, section: c.section, block: c.block ?? 1e9,
@@ -458,11 +513,11 @@ $("finish").addEventListener("click", async () => {
     H.set(h.id, h);
     // Re-anchor: try the stored offset, then search the block, then the whole document.
     let block = docEl.querySelector(`[data-block="${h.block}"]`), s = h.start;
-    if (!block || block.textContent.slice(s, s + h.text.length) !== h.text) {
-      s = block ? block.textContent.indexOf(h.text) : -1;
+    if (!block || textOf(block).slice(s, s + h.text.length) !== h.text) {
+      s = block ? textOf(block).indexOf(h.text) : -1;
       if (s < 0) {
-        block = [...docEl.querySelectorAll("[data-block]")].find((b) => b.textContent.includes(h.text));
-        s = block ? block.textContent.indexOf(h.text) : -1;
+        block = [...docEl.querySelectorAll("[data-block]")].find((b) => textOf(b).includes(h.text));
+        s = block ? textOf(block).indexOf(h.text) : -1;
       }
     }
     if (block && s >= 0) wrapRange(block, s, s + h.text.length, h.id);

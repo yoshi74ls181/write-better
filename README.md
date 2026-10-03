@@ -18,7 +18,7 @@ In Claude Code:
 
 The first command registers this repo as a plugin marketplace; the second installs the plugin from it. To work from a local clone instead, pass its path to `/plugin marketplace add`.
 
-Requirements: Python 3.8+ (standard library only) and any modern browser.
+Requirements: Python 3.8+ (standard library only) and any modern browser. Math typesetting needs internet access for KaTeX.
 
 ## The style file
 
@@ -33,6 +33,8 @@ Both skills use `~/.claude/writing-style.md` by default. To use a different file
 
 ## How the live guessing works
 
-The browser never calls a model directly. `scripts/feedback_server.py serve` queues each highlight in a session folder. The agent sits in a blocking `feedback_server.py next` call, which returns as soon as a highlight arrives. The agent then writes guesses using the text, its context from writing it, the style file, and your earlier comments, and goes back to waiting. No API key is needed, and the guesses come from the same agent that wrote the text (or, for your own writing, the agent that has read it).
+The browser never calls a model directly. `scripts/feedback_server.py serve` queues each highlight in a session folder. The agent sits in a blocking `feedback_server.py next` call, which returns as soon as a highlight arrives. The agent then writes guesses using the text, its context from writing it, the style file, and your earlier comments, and goes back to waiting. No API key is needed, and the guesses come from the same agent that wrote the text (or, for your own writing, the agent that has read it). To keep guesses fast, the agent reads the document and notes its weak spots before the session starts, and each guess round is just two tool calls. For even faster guesses at some cost in quality, run `/effort low` before the session and switch back afterwards.
+
+LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, `\begin{align}` and similar) is typeset with KaTeX, which the page loads from a CDN. Offline, formulas show as their TeX source. A highlight that touches a formula covers the whole formula.
 
 Session files go in `<document>.feedback/`. `comments.json` there keeps every comment, along with the guesses you were offered and whether you picked, edited, or replaced one.

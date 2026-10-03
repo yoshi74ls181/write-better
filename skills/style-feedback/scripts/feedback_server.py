@@ -41,14 +41,35 @@ _lock = threading.Lock()
 # UI can store highlight positions as (block, char offset).
 # --------------------------------------------------------------------------
 
+# Inline math: $$..$$ and \[..\] are display style, $..$ and \(..\) inline. A
+# single $ must hug its content and not touch a word or digit, so "$5 and $10"
+# stays text.
+MATH_INLINE_RE = re.compile(
+    r"\$\$(.+?)\$\$|\\\[(.+?)\\\]|\\\((.+?)\\\)"
+    r"|(?<![\\$\w])\$(?![\s$])((?:\\.|[^$\\])+?)(?<![\s\\])\$(?![\w$])"
+)
+MATH_ENV_RE = re.compile(r"^\s*\\begin\{([A-Za-z]+\*?)\}")
+
+
+def _math(src, tex, display):
+    """A formula the UI typesets with KaTeX. Until then (or offline) it shows `src`."""
+    return '<span class="math%s" data-src="%s" data-tex="%s">%s</span>' % (
+        " display" if display else "", html.escape(src), html.escape(tex), html.escape(src))
+
+
 def _inline(text):
-    codes = []
+    stash = []
 
-    def stash(m):
-        codes.append("<code>" + html.escape(m.group(1)) + "</code>")
-        return "\x00%d\x00" % (len(codes) - 1)
+    def keep(fragment):
+        stash.append(fragment)
+        return "\x00%d\x00" % (len(stash) - 1)
 
-    text = re.sub(r"`([^`]+)`", stash, text)
+    def math(m):
+        tex = next(g for g in m.groups() if g is not None)
+        return keep(_math(m.group(0), tex.strip(), m.group(1) is not None or m.group(2) is not None))
+
+    text = re.sub(r"`([^`]+)`", lambda m: keep("<code>" + html.escape(m.group(1)) + "</code>"), text)
+    text = MATH_INLINE_RE.sub(math, text)
     text = html.escape(text)
     text = re.sub(r"!\[([^\]]*)\]\(([^)\s]+)[^)]*\)", r'<img alt="\1" src="\2">', text)
     text = re.sub(r"\[([^\]]+)\]\(([^)\s]+)[^)]*\)", r'<a href="\2" target="_blank" rel="noopener">\1</a>', text)
@@ -56,7 +77,8 @@ def _inline(text):
     text = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"<em>\1</em>", text)
     text = re.sub(r"(?<![\w_])_(?!\s)(.+?)(?<!\s)_(?![\w_])", r"<em>\1</em>", text)
     text = re.sub(r"~~(.+?)~~", r"<del>\1</del>", text)
-    return re.sub(r"\x00(\d+)\x00", lambda m: codes[int(m.group(1))], text)
+    text = text.replace("\\$", "$")
+    return re.sub(r"\x00(\d+)\x00", lambda m: stash[int(m.group(1))], text)
 
 
 def _is_table_sep(line):
@@ -95,6 +117,20 @@ def render_markdown(src):
                 i += 1
             i += 1
             block("pre", "<code>" + html.escape("\n".join(buf)) + "</code>")
+            continue
+        stripped, env = line.strip(), MATH_ENV_RE.match(line)
+        if stripped.startswith(("$$", "\\[")) or env:
+            # Display math: $$ .. $$, \[ .. \], or \begin{env} .. \end{env}, possibly multi-line.
+            closer = "\\end{%s}" % env.group(1) if env else "$$" if stripped.startswith("$$") else "\\]"
+            buf, rest = [stripped], stripped if env else stripped[2:]
+            while closer not in rest and i + 1 < len(lines):
+                i += 1
+                rest = lines[i].strip()
+                buf.append(rest)
+            i += 1
+            src = "\n".join(buf)
+            tex = src if env else src[2:].split(closer, 1)[0]
+            block("div", _math(src, tex.strip(), True), ' class="math-block"')
             continue
         h = re.match(r"^(#{1,6})\s+(.*?)\s*#*\s*$", line)
         if h:
@@ -141,7 +177,7 @@ def render_markdown(src):
             continue
         buf = []
         while i < len(lines) and lines[i].strip() and not re.match(
-            r"^\s*(#{1,6}\s|```|~~~|>|([-*+]|\d+[.)])\s)", lines[i]
+            r"^\s*(#{1,6}\s|```|~~~|>|([-*+]|\d+[.)])\s|\$\$|\\\[|\\begin\{)", lines[i]
         ):
             buf.append(lines[i].strip())
             i += 1
