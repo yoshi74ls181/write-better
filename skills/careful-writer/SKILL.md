@@ -27,7 +27,7 @@ Find the style file in this order:
 2. The `WRITING_STYLE_FILE` environment variable (`echo $WRITING_STYLE_FILE`).
 3. `~/.claude/writing-style.md`.
 
-Read the whole file. If none exists, read `references/default-style.md` in this skill's directory and tell the user you're using the baseline style, which they can refine with the `style-feedback` skill.
+Read the whole file. If none exists, read `references/default-style.md` in this skill's directory and tell the user you're using the baseline style, which they can refine with the `doc-feedback` skill.
 
 Also note any **conventions of the form** that apply: a venue's format, a template the user gave, the existing voice of a document you are adding to, or the norms of the genre (an email gets a clear ask; an abstract states the result; reference docs favor scannable structure). The user's style rules win when they conflict with genre habits.
 
@@ -83,8 +83,8 @@ Don't batch these passes or skip them because a sentence "is obviously fine". Do
 
 ## Step 4: Hand off
 
-Tell the user where the piece is, in one or two sentences on what it covers, and mention any open `TODO`s or caveats. If the text's home is not a file, give the finished text itself. Then offer to collect their feedback with the `style-feedback` skill. Their comments will improve this piece and update the style file the next piece uses.
+Tell the user where the piece is, in one or two sentences on what it covers, and mention any open `TODO`s or caveats. If the text's home is not a file, give the finished text itself. Then offer to collect their feedback with the `doc-feedback` skill. Their comments will improve this piece, and their writing preferences will update the style file the next piece uses.
 
 ## Revising existing text
 
-When asked to revise, edit, or tighten text (yours or the user's, including after `style-feedback`), apply the same discipline. Read the whole piece first and note its reader and purpose. Then, after each changed sentence, re-read its paragraph; after each changed paragraph, re-read its section; after finishing, re-read the whole piece. Keep the author's voice and leave alone what the user didn't ask you to change, unless a style rule clearly applies.
+When asked to revise, edit, or tighten text (yours or the user's, including after `doc-feedback`), apply the same discipline. Read the whole piece first and note its reader and purpose. Then, after each changed sentence, re-read its paragraph; after each changed paragraph, re-read its section; after finishing, re-read the whole piece. Keep the author's voice and leave alone what the user didn't ask you to change, unless a style rule clearly applies.

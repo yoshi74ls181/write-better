@@ -1,6 +1,6 @@
 # Writing style (baseline)
 
-This baseline applies only when the user has no style file yet. The `style-feedback` skill creates the real one at `~/.claude/writing-style.md` and can start from a copy of this file.
+This baseline applies only when the user has no style file yet. The `doc-feedback` skill creates the real one at `~/.claude/writing-style.md` and can start from a copy of this file.
 
 ## Reader & voice
 - Default reader: a capable colleague outside this project who has not seen the research or the conversation.

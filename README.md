@@ -5,7 +5,7 @@ A Claude Code plugin with two skills that share one writing-style file. Each ski
 | Skill | What it does |
 |---|---|
 | `careful-writer` | Makes the agent write like a careful human writer instead of in one shot, for any prose that matters: reports, papers, proposals, docs, emails, statements, or a rewrite of existing text. It outlines first, then drafts **one sentence at a time** on disk. After each sentence it re-reads the paragraph, after each paragraph the section, and after each section the whole piece, revising each time against your style file. It ends with a fresh-reader subagent pass and a rule-by-rule style check. |
-| `style-feedback` | Serves a browser GUI, at a URL you open, on any piece of writing (converted to markdown if needed). You highlight words or sentences, and the agent guesses your comment live in a drop-down. Each guess can be edited, and the last row is always "write my own". When you finish, the agent proposes fixes to the text and new or updated rules for your style file, and writes the rules only after you confirm. |
+| `doc-feedback` | Serves a browser GUI, at a URL you open, on any document (converted to markdown if needed). You highlight words or sentences, and the agent guesses your comment live in a drop-down: technical points (correctness, derivations, methods, missing results) as well as writing. Each guess can be edited, and the last row is always "write my own". When you finish, the agent proposes fixes to the document, plus new or updated rules for your style file for writing preferences that carry over. Technical feedback on one document never goes into the style file, and rules are written only after you confirm. |
 
 ## Install
 
@@ -22,14 +22,14 @@ Requirements: Python 3.8+ (standard library only) and any modern browser. Math t
 
 ## The style file
 
-Both skills use `~/.claude/writing-style.md` by default. To use a different file, set `WRITING_STYLE_FILE` or name a path in your request. The format is described in `skills/style-feedback/references/style-file-format.md`. Until the file exists, `careful-writer` falls back to `skills/careful-writer/references/default-style.md`.
+Both skills use `~/.claude/writing-style.md` by default. To use a different file, set `WRITING_STYLE_FILE` or name a path in your request. The format is described in `skills/doc-feedback/references/style-file-format.md`. Until the file exists, `careful-writer` falls back to `skills/careful-writer/references/default-style.md`.
 
 ## Typical use
 
 1. Ask for a piece of writing, e.g. "Investigate X and write a report" or "Draft the related-work section." `careful-writer` triggers on writing tasks; you can also ask for it by name.
-2. Say "let me give feedback on this", or name a file, or run `/style-feedback`. The agent prints a URL; open it (Ctrl+click works in most terminals, including VS Code's).
+2. Say "let me give feedback on this", or name a file, or run `/doc-feedback`. The agent prints a URL; open it (Ctrl+click works in most terminals, including VS Code's).
 3. Select text. A popover shows "Guessing your comment…". Within a few seconds, 3–5 guesses appear. Pick one, edit one, or type your own in the last row, then **Save** (Ctrl+Enter). You can keep highlighting while guesses load; drafts wait in the sidebar.
-4. Click **Finish & send**. The agent summarizes the fixes it would make to the text and the style rules it would add or change, then applies them once you approve.
+4. Click **Finish & send**. The agent summarizes the technical and writing fixes it would make to the document and any style rules it would add or change, then applies them once you approve.
 
 ## How the live guessing works
 

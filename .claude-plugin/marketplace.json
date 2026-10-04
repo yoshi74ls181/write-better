@@ -1,6 +1,6 @@
 {
   "name": "write-better",
-  "description": "Careful writing and style learning from your feedback.",
+  "description": "Careful writing, and document feedback that teaches the agent your style.",
   "owner": {
     "name": "yoshi74ls181"
   },
@@ -8,7 +8,7 @@
     {
       "name": "write-better",
       "source": "./",
-      "description": "careful-writer and style-feedback skills sharing one writing-style file."
+      "description": "careful-writer and doc-feedback skills sharing one writing-style file."
     }
   ]
 }

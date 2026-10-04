@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Writing feedback</title>
+<title>Feedback</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- KaTeX typesets the math. Offline, formulas stay as their TeX source. -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
@@ -79,12 +79,12 @@
   .combo { margin: 10px 14px 0; border: 1px solid #cfccc5; border-radius: 8px; overflow: hidden; }
   .combo-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer;
                 background: #faf9f7; font-size: 14px; user-select: none; }
-  .combo-head .val { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .combo-head .val { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; }
   .combo-head .val.placeholder { color: var(--muted); }
   .combo-head .caret { color: var(--muted); transition: transform .15s; }
   .combo.closed .caret { transform: rotate(-90deg); }
   .combo.closed .opts { display: none; }
-  .opts { border-top: 1px solid var(--line); max-height: 320px; overflow-y: auto; }
+  .opts { border-top: 1px solid var(--line); max-height: max(320px, 60vh); overflow-y: auto; }
   .opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 10px; border-bottom: 1px solid #f0eee9; }
   .opt:last-child { border-bottom: none; }
   .opt.sel { background: var(--accent-soft); }
@@ -110,7 +110,7 @@
 </head>
 <body>
 <header>
-  <h1 id="title">Writing feedback</h1>
+  <h1 id="title">Feedback</h1>
   <span class="hint">Select any words or sentences to comment on them.</span>
   <span class="spacer"></span>
   <span id="agent"><span class="dot"></span><span id="agent-text">connecting…</span></span>
@@ -316,6 +316,7 @@ function openPop(id) {
   $("combo").classList.remove("closed");
   renderOpts(false);
   pop.classList.add("open");
+  growAll();
   position(id);
   paintMarks(); renderList();
   const own = opts.querySelector(".own textarea");
@@ -344,7 +345,7 @@ function renderOpts(keepFocus) {
     const ta = opts.querySelector(`textarea[data-idx="${activeIdx}"]`);
     if (ta) { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); }
   }
-  opts.querySelectorAll("textarea").forEach(grow);
+  growAll();
   syncHead();
 }
 function updateLoading() {
@@ -371,7 +372,15 @@ function makeRow(h, i, txt, isOwn) {
   row.append(num, ta);
   return row;
 }
-function grow(ta) { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; }
+// Fit a textarea to its text. It must be visible to measure, so growAll() runs
+// again whenever the popover or the dropdown opens. The border is added back
+// because scrollHeight leaves it out.
+function grow(ta) {
+  if (!ta.offsetParent) return;
+  ta.style.height = "auto";
+  ta.style.height = (ta.scrollHeight + ta.offsetHeight - ta.clientHeight) + "px";
+}
+function growAll() { opts.querySelectorAll("textarea").forEach(grow); }
 function choose(i) {
   const h = H.get(current); if (!h) return;
   h.sel = i;
@@ -391,7 +400,7 @@ function syncHead() {
   v.textContent = t || "Choose or write a comment"; v.classList.toggle("placeholder", !t);
   $("pop-save").disabled = !t;
 }
-$("combo-head").addEventListener("click", () => $("combo").classList.toggle("closed"));
+$("combo-head").addEventListener("click", () => { $("combo").classList.toggle("closed"); growAll(); });
 
 function closePop(discardIfDraft) {
   const h = H.get(current);
@@ -429,7 +438,7 @@ document.addEventListener("mousedown", (e) => {
   if (pop.classList.contains("open") && !pop.contains(e.target) && !e.target.closest("mark.hl, .item"))
     closePop(false);  // keep drafts; they stay in the sidebar
 });
-window.addEventListener("resize", () => current && position(current));
+window.addEventListener("resize", () => { if (current) { growAll(); position(current); } });
 
 // ---------- sidebar ----------
 function renderList() {
