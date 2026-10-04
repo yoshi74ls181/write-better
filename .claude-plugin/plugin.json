@@ -1,6 +1,6 @@
 {
   "name": "write-better",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Write prose the way a careful human writer does, and teach the agent your style through highlight-and-comment feedback.",
   "author": { "name": "yoshi74ls181" },
   "license": "MIT"

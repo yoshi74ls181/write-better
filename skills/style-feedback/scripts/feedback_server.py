@@ -11,8 +11,8 @@ The browser and the agent never talk directly. They share a session directory:
     DIR/done               created when the user clicks Finish
 
 Subcommands:
-    serve --document PATH --session DIR [--port 0]
-    open  --session DIR [--timeout 15]    show the GUI to the user; prints how
+    serve --document PATH --session DIR [--port 8765]
+    url   --session DIR [--timeout 15]    print the GUI's URL
     next  --session DIR [--timeout 540]   block until a highlight needs guesses
     stop  --session DIR                   shut the server down
 
@@ -20,19 +20,14 @@ Standard library only.
 """
 
 import argparse
-import glob
 import html
 import json
 import os
 import re
-import socket
-import stat
-import subprocess
 import sys
 import threading
 import time
 import urllib.request
-import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -358,7 +353,7 @@ def cmd_serve(args):
         sys.exit("document not found: %s" % doc)
     session = Session(args.session)
     session.init()
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(session, doc))
+    server = _bind(args.port, make_handler(session, doc))
     url = "http://127.0.0.1:%d/" % server.server_address[1]
     _write_json(session.info_path, {"url": url, "port": server.server_address[1],
                                     "pid": os.getpid(), "document": str(doc)})
@@ -376,103 +371,33 @@ def cmd_serve(args):
 
 
 # --------------------------------------------------------------------------
-# Opening the GUI where the user can see it. The server may run on a remote
-# host (VS Code Remote-SSH or plain ssh), often inside tmux, where the
-# environment we inherited ($BROWSER, VSCODE_IPC_HOOK_CLI) belongs to whichever
-# connection started the tmux session and is usually stale. So the VS Code
-# connection is looked up at call time.
+# Reaching the GUI. The server may run on a remote host reached through VS Code
+# Remote-SSH, often inside tmux, and from here there's no reliable way to tell
+# which screen the user is at. So nothing is opened automatically: `url` prints
+# a localhost address, which VS Code forwards when the user Ctrl+clicks it.
 # --------------------------------------------------------------------------
 
-VSCODE_SERVER_DIRS = ("~/.vscode-server", "~/.vscode-server-insiders", "~/.cursor-server")
+DEFAULT_PORT = 8765
 
 
-def _socket_alive(path):
-    try:
-        if not stat.S_ISSOCK(os.stat(path).st_mode):
-            return False
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(1)
+class _Server(ThreadingHTTPServer):
+    allow_reuse_address = os.name != "nt"  # on Windows, SO_REUSEADDR lets two servers share a port
+
+
+def _bind(port, handler):
+    """Bind 127.0.0.1 on `port`, or by default on 8765 or the next free port after it,
+    so the address (and any port VS Code forwarded) stays the same across sessions."""
+    candidates = [port] if port else list(range(DEFAULT_PORT, DEFAULT_PORT + 20)) + [0]
+    for i, p in enumerate(candidates):
         try:
-            s.connect(path)
-            return True
-        finally:
-            s.close()
-    except OSError:
-        return False
+            return _Server(("127.0.0.1", p), handler)
+        except OSError:
+            if i == len(candidates) - 1:
+                raise
 
 
-def _tmux(*args):
-    try:
-        return subprocess.run(["tmux"] + list(args), capture_output=True, text=True, timeout=3).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        return ""
-
-
-def _vscode_ipc_socket():
-    """The IPC socket of the VS Code window that is connected now, or None."""
-    trusted = []
-    if os.environ.get("TMUX"):
-        # tmux's copy is current only if update-environment refreshes it on attach
-        # (`set -ga update-environment " VSCODE_IPC_HOOK_CLI"` in ~/.tmux.conf).
-        if "VSCODE_IPC_HOOK_CLI" in _tmux("show-options", "-gv", "update-environment"):
-            line = _tmux("show-environment", "VSCODE_IPC_HOOK_CLI")
-            if line.startswith("VSCODE_IPC_HOOK_CLI="):
-                trusted.append(line.split("=", 1)[1])
-    else:
-        trusted.append(os.environ.get("VSCODE_IPC_HOOK_CLI", ""))
-    on_disk = glob.glob("/run/user/%d/vscode-ipc-*.sock" % os.getuid()) + glob.glob("/tmp/vscode-ipc-*.sock")
-    on_disk.sort(key=lambda p: os.path.getmtime(p) if os.path.exists(p) else 0, reverse=True)
-    return next((p for p in trusted + on_disk if p and _socket_alive(p)), None)
-
-
-def _vscode_browser_helper():
-    """VS Code's `browser.sh` from the newest installed VS Code server, or None."""
-    found = []
-    for d in VSCODE_SERVER_DIRS:
-        d = os.path.expanduser(d)
-        found += glob.glob(d + "/cli/servers/*/server/bin/helpers/browser.sh")
-        found += glob.glob(d + "/bin/*/bin/helpers/browser.sh")
-    return max(found, key=lambda p: os.path.getmtime(p.rsplit("/bin/helpers/", 1)[0]), default=None)
-
-
-def open_gui(port):
-    """Try to show the GUI to the user. Returns {"opened": how, "url": ..., "hint": ...}."""
-    local = "http://127.0.0.1:%d/" % port
-    over_ssh = bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
-    if os.name == "posix":
-        sock, helper = _vscode_ipc_socket(), _vscode_browser_helper()
-        if sock and helper:
-            url = "http://localhost:%d/" % port  # VS Code forwards localhost ports automatically
-            try:
-                r = subprocess.run([helper, url], env=dict(os.environ, VSCODE_IPC_HOOK_CLI=sock),
-                                   capture_output=True, timeout=15)
-                if r.returncode == 0:
-                    return {"opened": "vscode", "url": url,
-                            "hint": "If no tab appeared, open the URL in VS Code with 'Simple Browser: Show', "
-                                    "or use Ports panel > 'Open in Browser'."}
-            except (OSError, subprocess.SubprocessError):
-                pass
-    headless = sys.platform.startswith("linux") and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
-    if over_ssh or headless:
-        # Don't start a browser here: there's no screen, and a text browser would hang.
-        host = os.environ.get("SSH_CONNECTION", "").split()[2:3]
-        target = "<user>@%s" % (host[0] if host else socket.gethostname())
-        return {"opened": "none", "url": local,
-                "hint": "Forward the port from your own machine with `ssh -N -L %d:127.0.0.1:%d %s`, then open "
-                        "http://localhost:%d/ there. In VS Code Remote-SSH, use Ports panel > 'Forward a Port' "
-                        "with %d instead." % (port, port, target, port, port)}
-    if "vscode-server" in os.environ.get("BROWSER", ""):
-        os.environ.pop("BROWSER")  # a stale VS Code helper; let webbrowser find a real browser
-    try:
-        if webbrowser.open(local):
-            return {"opened": "browser", "url": local, "hint": ""}
-    except webbrowser.Error:
-        pass
-    return {"opened": "none", "url": local, "hint": "Open the URL in a browser on this machine."}
-
-
-def cmd_open(args):
-    """Wait for this session's server to answer, then open the GUI and report how."""
+def cmd_url(args):
+    """Wait for this session's server to answer, then print how to reach it."""
     session = Session(args.session)
     deadline = time.time() + args.timeout
     while True:
@@ -486,9 +411,8 @@ def cmd_open(args):
         if time.time() >= deadline:
             sys.exit("no running server for %s (start `serve` first)" % session.root)
         time.sleep(0.3)
-    result = open_gui(info["port"])
-    result["port"] = info["port"]
-    print(json.dumps(result, indent=2))
+    port = info["port"]
+    print(json.dumps({"url": "http://localhost:%d/" % port, "port": port}, indent=2))
 
 
 # --------------------------------------------------------------------------
@@ -548,17 +472,17 @@ def main():
     s = sub.add_parser("serve", help="start the feedback GUI")
     s.add_argument("--document", required=True)
     s.add_argument("--session", required=True)
-    s.add_argument("--port", type=int, default=0)
-    op = sub.add_parser("open", help="show the GUI to the user (local browser, VS Code Remote, or ssh hint)")
-    op.add_argument("--session", required=True)
-    op.add_argument("--timeout", type=float, default=15)
+    s.add_argument("--port", type=int, default=0, help="default: 8765 or the next free port")
+    u = sub.add_parser("url", help="print the GUI's URL once the server answers")
+    u.add_argument("--session", required=True)
+    u.add_argument("--timeout", type=float, default=15)
     nx = sub.add_parser("next", help="wait for the next highlight that needs guesses")
     nx.add_argument("--session", required=True)
     nx.add_argument("--timeout", type=float, default=540)
     st = sub.add_parser("stop", help="stop the server")
     st.add_argument("--session", required=True)
     args = ap.parse_args()
-    {"serve": cmd_serve, "open": cmd_open, "next": cmd_next, "stop": cmd_stop}[args.cmd](args)
+    {"serve": cmd_serve, "url": cmd_url, "next": cmd_next, "stop": cmd_stop}[args.cmd](args)
 
 
 if __name__ == "__main__":
