@@ -35,6 +35,18 @@ Both skills use `~/.claude/writing-style.md` by default. To use a different file
 
 The browser never calls a model directly. `scripts/feedback_server.py serve` queues each highlight in a session folder. The agent sits in a blocking `feedback_server.py next` call, which returns as soon as a highlight arrives. The agent then writes guesses using the text, its context from writing it, the style file, and your earlier comments, and goes back to waiting. No API key is needed, and the guesses come from the same agent that wrote the text (or, for your own writing, the agent that has read it). To keep guesses fast, the agent reads the document and notes its weak spots before the session starts, and each guess round is just two tool calls. For even faster guesses at some cost in quality, run `/effort low` before the session and switch back afterwards.
 
-LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, `\begin{align}` and similar) is typeset with KaTeX, which the page loads from a CDN. Offline, formulas show as their TeX source. A highlight that touches a formula covers the whole formula.
-
 Session files go in `<document>.feedback/`. `comments.json` there keeps every comment, along with the guesses you were offered and whether you picked, edited, or replaced one.
+
+## Remote machines (ssh, VS Code Remote-SSH, tmux)
+
+The server always runs on the machine where Claude Code runs, and `feedback_server.py open` decides how to show you the window:
+
+- **Local:** your default browser opens.
+- **VS Code Remote-SSH:** the page opens in your local browser through VS Code, which forwards the port automatically. This works inside tmux too: inside tmux, `$BROWSER` and `code` point at whichever VS Code connection started the session, so `open` looks up the connected VS Code window when it runs. If no tab appears, open the printed URL with VS Code's "Simple Browser: Show", or from the Ports panel.
+- **Plain ssh:** nothing can open from the remote side, so the agent gives you an `ssh -N -L <port>:127.0.0.1:<port> user@host` command to run on your own machine, then the URL to open.
+
+Optionally, add `set -ga update-environment " VSCODE_IPC_HOOK_CLI"` to `~/.tmux.conf` on the remote machine. tmux then records the current VS Code connection each time you reattach from a VS Code terminal, which `open` prefers when several VS Code windows are connected.
+
+## Math
+
+LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, `\begin{align}` and similar) is typeset with KaTeX, which the page loads from a CDN. Offline, formulas show as their TeX source. A highlight that touches a formula covers the whole formula.

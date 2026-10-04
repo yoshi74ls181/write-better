@@ -19,7 +19,15 @@ You run a highlight-and-comment session on a piece of writing, rendered from mar
    ```
    python "<skill-dir>/scripts/feedback_server.py" serve --document "<document>" --session "<session-dir>"
    ```
-   It opens the browser itself. Read `<session-dir>/server.json` for the URL and give it to the user in one line: "Select text to comment; I'll suggest comments; click **Finish & send** when done."
+6. Open the GUI for the user, in the **foreground**:
+   ```
+   python "<skill-dir>/scripts/feedback_server.py" open --session "<session-dir>"
+   ```
+   It waits for the server, shows the GUI where the user can see it, and prints `opened`, `url`, `port`, and `hint`. It works locally, over VS Code Remote-SSH (even inside tmux, where `$BROWSER` and `code` are stale), and over plain ssh. Tell the user in one or two lines, depending on `opened`:
+   - `browser` or `vscode`: "The feedback window should be open (`<url>`). Select text to comment; I'll suggest comments; click **Finish & send** when done." For `vscode`, add the `hint` as the fallback.
+   - `none`: nothing could be opened from here. Give the `hint` (for plain ssh it's an `ssh -L` port-forward command; fill in the user's login if you know it), then the same instructions.
+
+   Don't use `$BROWSER`, `xdg-open`, or `code` yourself. If the user says no window appeared, or asks to reopen it, run `open` again. A VS Code window that reconnected since the last attempt is picked up automatically.
 
 ## Step 2: Guess loop
 
@@ -64,7 +72,7 @@ Show the user one compact summary: the fixes to the piece as a list, and the sty
 
 1. **Edits to the piece.** Ask whether to apply the fixes (default: yes, both (a) and the (b) violations found in this piece). Revise carefully: if the `careful-writer` skill is available, follow its "Revising existing text" discipline. In any case, re-read the paragraph after each changed sentence and the whole piece at the end. Don't touch text the user didn't comment on unless a style rule clearly applies.
 2. **Style file.** Show the proposed change as a diff, or as the full new file if it's being created. If the file doesn't exist yet, start from `<skill-dir>/../careful-writer/references/default-style.md` if the user wants the baseline rules, or else from just the header sections. Write it **only after the user confirms**. Keep the file tight: merge, don't append duplicates.
-3. Offer another round, where the user reviews the revised piece the same way. If they accept, restart the server against the same session dir (the old comments stay visible in the sidebar), re-read the revised piece as in Step 1, and repeat Step 2.
+3. Offer another round, where the user reviews the revised piece the same way. If they accept, restart the server against the same session dir and run `open` again (the old comments stay visible in the sidebar), re-read the revised piece as in Step 1, and repeat Step 2.
 
 ## Step 5: Clean up
 
@@ -75,6 +83,7 @@ Keep `comments.json` (it's the user's record) unless the user asks to remove the
 
 ## Notes
 - The GUI lets the user type their own comment before the guesses arrive. If a highlight gets a comment first, `next` stops returning it, so no guess turn is wasted on it.
+- If `open` keeps reporting `vscode` but no tab appears, the VS Code connection it found is stale. Ask the user to reload the VS Code window (or reconnect), then run `open` again. If they also detach and reattach tmux from a VS Code terminal, adding `set -ga update-environment " VSCODE_IPC_HOOK_CLI"` to `~/.tmux.conf` makes the newest connection easier to find, but `open` works without it.
 - The header shows "agent listening" while `next` is waiting. If the loop stalls (for example, you were interrupted), just run `next` again. Queued highlights are kept.
 - LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, `\begin{align}` and similar) is typeset in the GUI with KaTeX, loaded from a CDN. Offline, formulas show as TeX source. Either way, a highlight that touches a formula covers the whole formula, and its text arrives as TeX source.
 - Using this skill alone, without careful-writer, works: any markdown file can be reviewed, and the style file is still updated.
