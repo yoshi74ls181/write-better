@@ -27,15 +27,19 @@ You run a highlight-and-comment session on a document, rendered from markdown. T
    ```
    python "<skill-dir>/scripts/feedback_server.py" url --session "<session-dir>"
    ```
-   It waits for the server and prints `url` and `port`. **Don't open a browser yourself** (no `$BROWSER`, `xdg-open`, `start`, or `code`): the user may be working through VS Code Remote-SSH, often inside tmux, and a browser opened from here would land on the wrong screen. Instead, give the user the URL in this shape:
+   It waits for the server and prints `url` and `port`. **Don't open a browser yourself** (no `$BROWSER`, `xdg-open`, `start`, or `code`): the user may be working through VS Code Remote-SSH, often inside tmux, and a browser opened from here would land on the wrong screen. Instead, send the user this message as plain text (not in a code block or quote), with the printed `url` and `port` in place of 8765:
 
-   > Open the feedback window (Ctrl+click):
-   >
-   > http://localhost:8765/
-   >
-   > Select text to comment; I'll suggest comments; click **Finish & send** when done.
+   ```
+   Open the feedback window (Ctrl+click):
 
-   Put the bare URL on its own line, not in a markdown link or code span, so it can be Ctrl+clicked in the terminal. Over VS Code Remote-SSH, VS Code forwards the port and opens the page in the user's local browser. If the user says they're at this machine and asks you to open it, you may.
+   http://localhost:8765/
+
+   Select text to comment; I'll suggest comments; click **Finish & send** when done.
+
+   On VS Code Remote-SSH, if the link doesn't open: in the **Ports** tab next to **Terminal**, click **Forward a Port** (or **Add Port**), enter 8765, and open the address in the **Forwarded Address** column.
+   ```
+
+   The URL line must hold the URL and nothing else, with a blank line above and below it: no other words, markdown link, code span, bold, or quote marker. Set apart like this, the URL is easy to spot and can be Ctrl+clicked in the terminal. If the user says they're at this machine and asks you to open it, you may.
 
 ## Step 2: Guess loop
 
@@ -101,7 +105,8 @@ Keep `comments.json` (it's the user's record) unless the user asks to remove the
 
 ## Notes
 - The GUI lets the user type their own comment before the guesses arrive. If a highlight gets a comment first, `next` stops returning it, so no guess turn is wasted on it.
-- The server uses port 8765, or the next free port if that's taken, so a port VS Code already forwarded keeps working across sessions. If the port changed, give the new URL. If Ctrl+click doesn't open anything, the user can add the port in VS Code's Ports panel ("Forward a Port") and open it from there.
+- The server uses port 8765, or the next free port if that's taken, so a port VS Code already forwarded keeps working across sessions. If the port changed, give the new URL and use the new port in the forwarding steps.
+- Over VS Code Remote-SSH, VS Code usually forwards the port by itself once the server starts, lists it in the Ports tab, and opens the link in the user's local browser. When it doesn't, the user forwards the port by hand with the steps in the Step 1 message. If port 8765 is already busy on the user's own computer, VS Code forwards it to a different local port; the page is then at the address in the Forwarded Address column, not at the URL you gave.
 - The header shows "agent listening" while `next` is waiting. If the loop stalls (for example, you were interrupted), just run `next` again. Queued highlights are kept.
 - LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, `\begin{align}` and similar) is typeset in the GUI with KaTeX, loaded from a CDN. Offline, formulas show as TeX source. Either way, a highlight that touches a formula covers the whole formula, and its text arrives as TeX source.
 - Using this skill alone, without careful-writer, works: any markdown file can be reviewed, and the style file is still updated with writing preferences.
