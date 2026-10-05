@@ -126,7 +126,9 @@
   .combo-head .caret { color: var(--muted); transition: transform .15s; }
   .combo.closed .caret { transform: rotate(-90deg); }
   .combo.closed .opts { display: none; }
-  .opts { border-top: 1px solid var(--line); min-height: 60px; overflow-y: auto; }
+  /* The gutter keeps the width fixed when the scrollbar appears. Otherwise rows
+     sized by grow() narrow, rewrap, and lose their last line. */
+  .opts { border-top: 1px solid var(--line); min-height: 60px; overflow-y: auto; scrollbar-gutter: stable; }
   .opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 10px; border-bottom: 1px solid var(--line-faint); }
   .opt:last-child { border-bottom: none; }
   .opt.sel { background: var(--accent-soft); }
