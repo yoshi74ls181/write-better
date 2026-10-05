@@ -84,7 +84,9 @@
   aside { position: sticky; top: 52px; align-self: start; max-height: calc(100vh - 60px);
           display: flex; flex-direction: column; gap: 10px; }
   aside h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0; }
-  #list { flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
+  /* Natural height, but when the sidebar is full the list shrinks (and scrolls) long before the panel does,
+     down to about one card. */
+  #list { flex: 0 1000 auto; min-height: min(120px, 20vh); overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
   .item { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
   .item:hover { border-color: var(--line-hover); }
   .item .quote { font-size: 13px; color: var(--muted); border-left: 3px solid var(--mark-saved);
