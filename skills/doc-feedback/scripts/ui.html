@@ -32,11 +32,13 @@
   body { margin: 0; background: var(--bg); color: var(--ink);
          font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px;
-           padding: 10px 20px; background: var(--paper); border-bottom: 1px solid var(--line); }
-  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
-  header .hint { color: var(--muted); font-size: 13px; }
+           padding: 8px 12px; background: var(--paper); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; white-space: nowrap; }
+  header .hint { color: var(--muted); font-size: 13px; min-width: 0; white-space: nowrap; overflow: hidden;
+                 text-overflow: ellipsis; }
+  header button { font-size: 13px; padding: 4px 10px; white-space: nowrap; }
   header .spacer { flex: 1; }
-  #agent { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  #agent { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
   #agent .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot-off); }
   #agent.on .dot { background: var(--dot-on); }
   #agent.warn .dot { background: var(--dot-warn); }
@@ -47,15 +49,16 @@
   button.primary:disabled { opacity: .5; cursor: default; }
   button.link { border: none; background: none; padding: 0 4px; color: var(--muted); font-size: 12px; }
   button.link:hover { color: var(--danger); }
-  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px;
-         max-width: 1240px; margin: 0 auto; padding: 20px; }
+  /* The sidebar narrows with the window and only drops below the document on very narrow screens. */
+  main { display: grid; grid-template-columns: minmax(0, 1fr) clamp(240px, 28vw, 340px); gap: 10px;
+         max-width: 1240px; margin: 0 auto; padding: 8px 10px; }
   #doc { background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
-            padding: 36px 48px; font: 17px/1.65 Georgia, "Iowan Old Style", "Times New Roman", serif; }
+            padding: 24px 24px 24px 34px; font: 15px/1.6 Georgia, "Iowan Old Style", "Times New Roman", serif; }
   #doc h1, #doc h2, #doc h3, #doc h4 { font-family: system-ui, "Segoe UI", sans-serif; line-height: 1.25; }
-  #doc h1 { font-size: 28px; margin-top: 0; }
-  #doc pre { background: var(--sunken); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+  #doc h1 { font-size: 24px; margin-top: 0; }
+  #doc pre { background: var(--sunken); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
   #doc code { font-family: ui-monospace, Consolas, monospace; font-size: .88em; }
-  #doc table { border-collapse: collapse; margin: 1em 0; font-size: 15px; }
+  #doc table { border-collapse: collapse; margin: 1em 0; font-size: 14px; }
   #doc th, #doc td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
   #doc blockquote { margin: 1em 0; padding-left: 14px; border-left: 3px solid var(--line); color: var(--quote-ink); }
   #doc li.sub { margin-left: 1.6em; }
@@ -66,7 +69,7 @@
   #doc .math .katex-display { margin: 0; }
   /* Comments on a whole paragraph or section: a bar in the left margin, and a tint while open. */
   #doc [data-block] { position: relative; }
-  #doc .c-scoped::before { content: ""; position: absolute; left: -12px; top: 3px; bottom: 3px; width: 3px;
+  #doc .c-scoped::before { content: ""; position: absolute; left: -8px; top: 3px; bottom: 3px; width: 3px;
                            border-radius: 2px; background: var(--mark-saved); }
   #doc .c-scoped.c-saved::before { background: var(--mark-edge); }
   #doc .c-active { background: var(--accent-soft); box-shadow: 0 0 0 6px var(--accent-soft); border-radius: 2px; }
@@ -78,13 +81,12 @@
   mark.hl:has(> .math.display) { display: block; }
   mark.hl.saved { background: var(--mark-saved); border-bottom: 2px solid var(--mark-edge); }
   mark.hl.active { background: var(--mark-active); }
-  aside { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 84px);
+  aside { position: sticky; top: 52px; align-self: start; max-height: calc(100vh - 60px);
           display: flex; flex-direction: column; gap: 10px; }
   aside h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0; }
   #list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
-  .item { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; cursor: pointer; }
+  .item { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
   .item:hover { border-color: var(--line-hover); }
-  .item.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
   .item .quote { font-size: 13px; color: var(--muted); border-left: 3px solid var(--mark-saved);
                  padding-left: 8px; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2;
                  -webkit-box-orient: vertical; overflow: hidden; }
@@ -99,10 +101,10 @@
   #pop { flex: none; background: var(--paper); border: 1px solid var(--accent); border-radius: 10px;
          box-shadow: 0 4px 14px var(--shadow); display: none; }
   #pop.open { display: block; }
-  #pop .q { padding: 10px 14px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line);
+  #pop .q { padding: 8px 10px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line);
             max-height: 72px; overflow: hidden; }
   #pop .q b { color: var(--ink); font-weight: 500; }
-  .combo { margin: 10px 14px 0; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+  .combo { margin: 8px 8px 0; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
   .combo-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer;
                 background: var(--raised); font-size: 14px; user-select: none; }
   .combo-head .val { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -125,14 +127,15 @@
   .spin { width: 14px; height: 14px; border: 2px solid var(--spin-track); border-top-color: var(--accent);
           border-radius: 50%; animation: spin .8s linear infinite; flex: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  #pop .foot { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
+  #pop .foot { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
   #pop .foot .keys { flex: 1; font-size: 12px; color: var(--muted); }
   #overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 50; display: none;
              align-items: center; justify-content: center; text-align: center; }
   #overlay.open { display: flex; }
   #overlay div { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 28px 36px; }
-  @media (max-width: 900px) {
+  @media (max-width: 600px) {
     main { grid-template-columns: 1fr; } aside { position: static; max-height: none; }
+    header { flex-wrap: wrap; row-gap: 6px; } header .hint { display: none; }
     /* The sidebar is below the document here, so the panel sits at the bottom of the screen. */
     #pop { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 20; max-height: 70vh; overflow-y: auto; }
     .opts { max-height: 35vh; }
@@ -142,7 +145,7 @@
 <body>
 <header>
   <h1 id="title">Feedback</h1>
-  <span class="hint">Select words or sentences to comment on them, or use ¶ and § in the margin for a whole paragraph or section.</span>
+  <span class="hint" title="Select words or sentences to comment on them, or use ¶ and § in the margin for a whole paragraph or section.">Select words or sentences to comment on them, or use ¶ and § in the margin for a whole paragraph or section.</span>
   <span class="spacer"></span>
   <span id="agent"><span class="dot"></span><span id="agent-text">connecting…</span></span>
   <button id="doc-comment">Comment on the whole document</button>
@@ -378,7 +381,7 @@ docEl.addEventListener("mousemove", (e) => {
   scopeBtn.textContent = sec ? "§" : "¶";
   scopeBtn.title = sec ? "Comment on this whole section" : "Comment on this whole paragraph";
   const d = docEl.getBoundingClientRect(), r = b.getBoundingClientRect();
-  scopeBtn.style.left = (d.left + window.scrollX + 8) + "px";
+  scopeBtn.style.left = (d.left + window.scrollX + 4) + "px";
   scopeBtn.style.top = (r.top + window.scrollY) + "px";
   scopeBtn.classList.add("show");
 });
@@ -566,8 +569,9 @@ function renderList() {
   $("count").textContent = items.length ? `(${items.filter((h) => h.status === "saved").length})` : "";
   if (!items.length) { list.innerHTML = '<div class="empty">No comments yet. Select text in the document to add one.</div>'; return; }
   for (const h of items) {
+    if (h.id === current) continue;  // it is shown in the comment panel above the list
     const d = document.createElement("div");
-    d.className = "item" + (h.status === "draft" ? " draft" : "") + (h.id === current ? " active" : "");
+    d.className = "item" + (h.status === "draft" ? " draft" : "");
     const q = document.createElement("div"); q.className = "quote";
     q.textContent = { selection: "", paragraph: "¶ ", section: "§ ", document: "Whole document: " }[h.scope] + h.text;
     const t = document.createElement("div"); t.className = "text";
