@@ -7,6 +7,7 @@ The browser and the agent never talk directly. They share a session directory:
     DIR/pending/<id>.json  highlights waiting for guesses (written by the server)
     DIR/guesses/<id>.json  {"guesses": [...]} (written by the agent)
     DIR/comments.json      saved comments (written by the server)
+    DIR/resolved.json      comments taken out of later rounds once applied or dropped (`resolve`)
     DIR/heartbeat          touched by `next` while the agent is listening
     DIR/done               created when the user clicks Finish
 
@@ -14,6 +15,7 @@ Subcommands:
     serve --document PATH --session DIR [--port 8765]
     url   --session DIR [--timeout 15]    print the GUI's URL and the message to send the user
     next  --session DIR [--timeout 540]   block until a highlight needs guesses
+    resolve --session DIR ID [ID ...]     move comments from comments.json to resolved.json
     stop  --session DIR                   shut the server down
 
 Standard library only.
@@ -210,6 +212,7 @@ class Session:
         self.pending = self.root / "pending"
         self.guesses = self.root / "guesses"
         self.comments_path = self.root / "comments.json"
+        self.resolved_path = self.root / "resolved.json"
         self.done_path = self.root / "done"
         self.heartbeat = self.root / "heartbeat"
         self.info_path = self.root / "server.json"
@@ -477,6 +480,27 @@ def cmd_next(args):
         time.sleep(0.3)
 
 
+def cmd_resolve(args):
+    """Take comments out of the session once they're dealt with, so the next round
+    doesn't show them again. They're kept, with the time, in resolved.json."""
+    session = Session(args.session)
+    ids = set(args.ids)
+    with _lock:
+        items = session.comments()
+        done = [c for c in items if c.get("id") in ids]
+        now = time.strftime("%Y-%m-%dT%H:%M:%S")
+        for c in done:
+            c["resolved"] = now
+        _write_json(session.resolved_path, _read_json(session.resolved_path, []) + done)
+        session.save_comments([c for c in items if c.get("id") not in ids])
+    for c in done:
+        p = session.guesses / (c["id"] + ".json")
+        if p.exists():
+            p.unlink()
+    missing = sorted(ids - {c.get("id") for c in done})
+    print(json.dumps({"resolved": len(done), "remaining": len(items) - len(done), "not_found": missing}))
+
+
 def cmd_stop(args):
     info = _read_json(Session(args.session).info_path)
     if not info:
@@ -506,10 +530,13 @@ def main():
     nx = sub.add_parser("next", help="wait for the next highlight that needs guesses")
     nx.add_argument("--session", required=True)
     nx.add_argument("--timeout", type=float, default=540)
+    rs = sub.add_parser("resolve", help="move dealt-with comments out of comments.json")
+    rs.add_argument("--session", required=True)
+    rs.add_argument("ids", nargs="+", metavar="ID")
     st = sub.add_parser("stop", help="stop the server")
     st.add_argument("--session", required=True)
     args = ap.parse_args()
-    {"serve": cmd_serve, "url": cmd_url, "next": cmd_next, "stop": cmd_stop}[args.cmd](args)
+    {"serve": cmd_serve, "url": cmd_url, "next": cmd_next, "resolve": cmd_resolve, "stop": cmd_stop}[args.cmd](args)
 
 
 if __name__ == "__main__":

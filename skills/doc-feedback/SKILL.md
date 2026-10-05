@@ -18,7 +18,7 @@ You run a highlight-and-comment session on a document, rendered from markdown. T
    - **Writing**: style-rule violations, undefined terms, hedges, unclear or clumsy sentences, poor ordering.
 
    Do your thinking here, so that during the loop each guess is mostly recall.
-4. **Session dir**: `<doc-dir>/<doc-stem>.feedback/`. Reusing an existing dir keeps the earlier comments and starts a new round.
+4. **Session dir**: `<doc-dir>/<doc-stem>.feedback/`. Reusing an existing dir starts a new round and keeps the earlier comments that haven't been resolved (Step 4). If `comments.json` already holds comments, check each against the document as it is now, and resolve the ones whose fix is already in it before you start the server. Sessions from older versions of this skill never resolved anything, so they may hold many.
 5. Start the server **in the background** (Bash with `run_in_background: true`):
    ```
    python "<skill-dir>/scripts/feedback_server.py" serve --document "<document>" --session "<session-dir>"
@@ -92,14 +92,19 @@ Show the user one compact summary:
 
 1. **Edits to the document.** Ask whether to apply the fixes (default: yes, all of (a) and (b), plus the (c) violations found in this document). For technical fixes, do the work before you write: re-derive, check the source, or run the code, and don't paper over a problem you couldn't resolve. Mark it in the text or tell the user instead. Revise carefully: if the `careful-writer` skill is available, follow its "Revising existing text" discipline. In any case, re-read the paragraph after each changed sentence and the whole document at the end. Don't touch text the user didn't comment on unless a style rule clearly applies or a technical fix requires it (for example, a corrected number that appears in two places).
 2. **Style file.** Only if there are (c) changes. Show the proposed change as a diff, or as the full new file if it's being created. If the file doesn't exist yet, start from `<skill-dir>/../careful-writer/references/default-style.md` if the user wants the baseline rules, or else from just the header sections. Write it **only after the user confirms**. Keep the file tight: merge, don't append duplicates.
-3. Offer another round, where the user reviews the revised document the same way. If they accept, restart the server against the same session dir (the old comments stay visible in the sidebar; the port usually stays the same, so the user can just reload the page), re-read the revised document as in Step 1, give the user the URL and wait for the first highlight as in Step 1 (steps 6 and 7), and repeat Step 2.
+3. **Resolve what's done.** Run this with the `id` of every comment whose fix you made in full, and of every comment the user chose to drop:
+   ```
+   python "<skill-dir>/scripts/feedback_server.py" resolve --session "<session-dir>" <id> [<id> ...]
+   ```
+   It moves those comments from `comments.json` to `resolved.json`, so the next round doesn't show them again. Leave in `comments.json` only the comments that still need work, such as a fix you couldn't finish, and tell the user which ones they are.
+4. Offer another round, where the user reviews the revised document the same way. If they accept, restart the server against the same session dir (comments you didn't resolve stay in the sidebar; the port usually stays the same, so the user can just reload the page), re-read the revised document as in Step 1, give the user the URL and wait for the first highlight as in Step 1 (steps 6 and 7), and repeat Step 2.
 
 ## Step 5: Clean up
 
 ```
 python "<skill-dir>/scripts/feedback_server.py" stop --session "<session-dir>"
 ```
-Keep `comments.json` (it's the user's record) unless the user asks to remove the session dir.
+Keep `comments.json` and `resolved.json` (they're the user's record) unless the user asks to remove the session dir.
 
 ## Notes
 - Besides selecting text, the user can comment on a whole paragraph (¶ in the left margin), a whole section (§ next to its heading), or the whole document (a button in the header). Each of these holds one comment, and older `comments.json` files without `scope` are read as selections.
