@@ -1,6 +1,6 @@
 ---
 name: doc-feedback
-description: Collect the user's feedback on a document (a report, paper, proposal, doc, email draft, or any other text) through a local browser GUI. The user highlights words or sentences, the agent guesses the likely comment live (offered in an editable drop-down), and afterwards the comments become fixes to the document. Feedback can be technical (correctness, derivations, methods, missing results, code) or about the writing. Only writing preferences that carry over to future documents go into the user's shared writing-style file (~/.claude/writing-style.md), which the careful-writer skill reads. Use when the user wants to review, mark up, comment on, or give feedback on a document, or wants to teach or update their writing style.
+description: Collect the user's feedback on a document (a report, paper, proposal, doc, email draft, or any other text) through a local browser GUI. The user highlights words or sentences, or picks a whole paragraph, section, or the entire document, and the agent guesses the likely comment live (offered in an editable drop-down); afterwards the comments become fixes to the document. Feedback can be technical (correctness, derivations, methods, missing results, code) or about the writing. Only writing preferences that carry over to future documents go into the user's shared writing-style file (~/.claude/writing-style.md), which the careful-writer skill reads. Use when the user wants to review, mark up, comment on, or give feedback on a document, or wants to teach or update their writing style.
 ---
 
 # doc-feedback
@@ -23,27 +23,17 @@ You run a highlight-and-comment session on a document, rendered from markdown. T
    ```
    python "<skill-dir>/scripts/feedback_server.py" serve --document "<document>" --session "<session-dir>"
    ```
-6. Get the address, in the **foreground**:
+6. Get the address and give it to the user. Run, in the **foreground**:
    ```
    python "<skill-dir>/scripts/feedback_server.py" url --session "<session-dir>"
    ```
-   It waits for the server and prints `url` and `port`. **Don't open a browser yourself** (no `$BROWSER`, `xdg-open`, `start`, or `code`): the user may be working through VS Code Remote-SSH, often inside tmux, and a browser opened from here would land on the wrong screen. Instead, send the user this message as plain text (not in a code block or quote), with the printed `url` and `port` in place of 8765:
+   It waits for the server, then prints `url`, `port`, and a ready-made message for the user, which includes the steps for forwarding the port over VS Code Remote-SSH. **Send that message at once, as visible text, before any other tool call.** Your reasoning and tool output may not be shown to the user, so without this message they have no way to find the window. Send it as plain text, not in a code block or quote, and keep the URL alone on its line with a blank line above and below it, so it's easy to spot and Ctrl+clickable in the terminal.
 
-   ```
-   Open the feedback window (Ctrl+click):
-
-   http://localhost:8765/
-
-   Select text to comment; I'll suggest comments; click **Finish & send** when done.
-
-   On VS Code Remote-SSH, if the link doesn't open: in the **Ports** tab next to **Terminal**, click **Forward a Port** (or **Add Port**), enter 8765, and open the address in the **Forwarded Address** column.
-   ```
-
-   The URL line must hold the URL and nothing else, with a blank line above and below it: no other words, markdown link, code span, bold, or quote marker. Set apart like this, the URL is easy to spot and can be Ctrl+clicked in the terminal. If the user says they're at this machine and asks you to open it, you may.
+   **Don't open a browser yourself** (no `$BROWSER`, `xdg-open`, `start`, or `code`): the user may be working through VS Code Remote-SSH, often inside tmux, and a browser opened from here would land on the wrong screen. If the user says they're at this machine and asks you to open it, you may.
 
 ## Step 2: Guess loop
 
-The user is waiting from the moment they highlight until the guesses appear, so the loop is built for speed. Each round is **exactly two tool calls**, `next` and then `Write`, with no text output, no file reads, and no other tools between them.
+The user is waiting from the moment they highlight until the guesses appear, so the loop is built for speed. Each round is **exactly two tool calls**, `next` and then `Write`, with no text output, no file reads, and no other tools between them. (The URL message from Step 1 comes before the loop; send it first.)
 
 Repeat until the session is done:
 
@@ -54,7 +44,7 @@ Repeat until the session is done:
    It blocks until something happens and prints one JSON object:
    - `{"idle": true}`: nothing yet. Run `next` again immediately.
    - `{"done": true, ...}`: the user finished. Go to Step 3.
-   - A highlight: `id`, `text` (the selection), `paragraph`, `section`, `guesses_path`, `queue_remaining`, and `prior_comments` (everything saved so far this session, with `source` showing whether they picked a guess as is, edited one, or wrote their own). Math arrives as its TeX source, such as `$a_i$`.
+   - A highlight: `id`, `scope`, `text`, `paragraph`, `section`, `guesses_path`, `queue_remaining`, and `prior_comments` (everything saved so far this session, with `source` showing whether they picked a guess as is, edited one, or wrote their own). Math arrives as its TeX source, such as `$a_i$`. `scope` says what the comment is about: `selection` (the highlighted passage in `text`), `paragraph` (the whole paragraph, also in `text`), `section` (the whole section; `text` is only its heading), or `document` (the whole document; `text` is only its file name).
 2. Write **3–5 guesses** with the Write tool to `guesses_path`, as exactly `{"guesses": ["...", "..."]}`. Decide quickly: use what you noted in Step 1 and the guidance below, and don't deliberate over wording or order.
 3. Go back to step 1 at once. Don't stop to comment, summarize, or check on the user between rounds.
 
@@ -66,12 +56,13 @@ Repeat until the session is done:
   2. **Your Step 1 notes** on this passage, technical or writing.
   3. **Style-file rules** that the selected text breaks.
   4. **What the selection suggests.** An equation, number, or symbol suggests a correctness, notation, or units question. A claim suggests "is this right / what's the evidence / cite it". A single word suggests word choice, an undefined term, or jargon. A phrase suggests wordiness, vagueness, or a hedge. A whole sentence suggests that it's wrong, unsupported, unclear, too long, in the wrong place, or unneeded.
+- **For a whole paragraph, section, or document** (`scope` other than `selection`), guess about the unit as a whole, not about one sentence in it. For a paragraph: its point, its topic sentence, the order of its sentences, its length, or whether it belongs here. For a section: whether it answers the question it opens with, its structure, what's missing, or whether it should move, merge, or go. For the document: its main claim, its framing, its overall structure, its length, and its gaps. For a section or the document, the record carries only a heading or a file name, so draw on your Step 1 notes.
 - Make the guesses **different from each other**, each a distinct reading of why the user highlighted this.
 - **Never offer a "fine as it is" guess** ("Good. Keep this", "No change needed", and the like). The user highlighted the text because something about it caught their attention, so every guess should name a specific change or question. When the text has no obvious problem, look harder: correctness, missing justification, word choice, emphasis, placement, or whether it's needed at all.
 
 ## Step 3: Digest
 
-Read `<session-dir>/comments.json`. Each item has `text`, `paragraph`, `section`, `comment`, `source`, and the `guesses` you offered.
+Read `<session-dir>/comments.json`. Each item has `scope`, `text`, `paragraph`, `section`, `comment`, `source`, and the `guesses` you offered.
 
 Sort every comment into one of three kinds:
 - **(a) Technical, this document**: about the content of this document (a wrong claim or equation, a gap in an argument, a missing experiment or citation, a method choice, a bug in included code, "this contradicts Table 2").
@@ -104,9 +95,10 @@ python "<skill-dir>/scripts/feedback_server.py" stop --session "<session-dir>"
 Keep `comments.json` (it's the user's record) unless the user asks to remove the session dir.
 
 ## Notes
+- Besides selecting text, the user can comment on a whole paragraph (¶ in the left margin), a whole section (§ next to its heading), or the whole document (a button in the header). Each of these holds one comment, and older `comments.json` files without `scope` are read as selections.
 - The GUI lets the user type their own comment before the guesses arrive. If a highlight gets a comment first, `next` stops returning it, so no guess turn is wasted on it.
 - The server uses port 8765, or the next free port if that's taken, so a port VS Code already forwarded keeps working across sessions. If the port changed, give the new URL and use the new port in the forwarding steps.
-- Over VS Code Remote-SSH, VS Code usually forwards the port by itself once the server starts, lists it in the Ports tab, and opens the link in the user's local browser. When it doesn't, the user forwards the port by hand with the steps in the Step 1 message. If port 8765 is already busy on the user's own computer, VS Code forwards it to a different local port; the page is then at the address in the Forwarded Address column, not at the URL you gave.
+- Over VS Code Remote-SSH, VS Code usually forwards the port by itself once the server starts, lists it in the Ports tab, and opens the link in the user's local browser. When it doesn't, the user forwards the port by hand with the steps in the URL message. If port 8765 is already busy on the user's own computer, VS Code forwards it to a different local port; the page is then at the address in the Forwarded Address column, not at the URL you gave.
 - The header shows "agent listening" while `next` is waiting. If the loop stalls (for example, you were interrupted), just run `next` again. Queued highlights are kept.
 - LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, `\begin{align}` and similar) is typeset in the GUI with KaTeX, loaded from a CDN. Offline, formulas show as TeX source. Either way, a highlight that touches a formula covers the whole formula, and its text arrives as TeX source.
 - Using this skill alone, without careful-writer, works: any markdown file can be reviewed, and the style file is still updated with writing preferences.

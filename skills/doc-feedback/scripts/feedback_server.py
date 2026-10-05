@@ -12,7 +12,7 @@ The browser and the agent never talk directly. They share a session directory:
 
 Subcommands:
     serve --document PATH --session DIR [--port 8765]
-    url   --session DIR [--timeout 15]    print the GUI's URL
+    url   --session DIR [--timeout 15]    print the GUI's URL and the message to send the user
     next  --session DIR [--timeout 540]   block until a highlight needs guesses
     stop  --session DIR                   shut the server down
 
@@ -231,6 +231,14 @@ class Session:
 # HTTP server
 # --------------------------------------------------------------------------
 
+# What a comment is about: a selected passage, or a whole paragraph, section, or document.
+SCOPES = ("selection", "paragraph", "section", "document")
+
+
+def _scope(body):
+    return body.get("scope") if body.get("scope") in SCOPES else "selection"
+
+
 def make_handler(session, doc_path):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):  # keep the agent's background output quiet
@@ -298,6 +306,7 @@ def make_handler(session, doc_path):
                     if not hid or not str(body.get("text", "")).strip():
                         return self._json({"error": "bad highlight"}, 400)
                     rec = {k: body.get(k) for k in ("id", "text", "paragraph", "section")}
+                    rec["scope"] = _scope(body)
                     rec["created"] = time.strftime("%Y-%m-%dT%H:%M:%S")
                     _write_json(session.pending / (hid + ".json"), rec)
                     self._json({"ok": True})
@@ -315,6 +324,7 @@ def make_handler(session, doc_path):
                     keys = ("id", "text", "paragraph", "section", "block", "start", "comment",
                             "source", "guess_index", "guesses")
                     rec = {k: body.get(k) for k in keys}
+                    rec["scope"] = _scope(body)
                     now = time.strftime("%Y-%m-%dT%H:%M:%S")
                     items = session.comments()
                     old = next((c for c in items if c.get("id") == hid), None)
@@ -412,7 +422,23 @@ def cmd_url(args):
             sys.exit("no running server for %s (start `serve` first)" % session.root)
         time.sleep(0.3)
     port = info["port"]
-    print(json.dumps({"url": "http://localhost:%d/" % port, "port": port}, indent=2))
+    url = "http://localhost:%d/" % port
+    print("url: %s\nport: %d\n" % (url, port))
+    print("Send the user this message now, as visible text, before any other tool call:\n")
+    print(URL_MESSAGE.format(url=url, port=port))
+
+
+# The URL gets a line of its own so it's easy to spot and Ctrl+clickable in a terminal.
+URL_MESSAGE = """\
+Open the feedback window (Ctrl+click):
+
+{url}
+
+Select text to comment; I'll suggest comments; click **Finish & send** when done.
+
+On VS Code Remote-SSH, if the link doesn't open: in the **Ports** tab next to **Terminal**, \
+click **Forward a Port** (or **Add Port**), enter {port}, and open the address in the \
+**Forwarded Address** column."""
 
 
 # --------------------------------------------------------------------------
@@ -437,7 +463,8 @@ def cmd_next(args):
             rec = _read_json(p)
             if rec is None:
                 continue  # half-written; pick it up next round
-            prior = [{"text": c.get("text"), "comment": c.get("comment"), "source": c.get("source")}
+            prior = [{"scope": c.get("scope", "selection"), "text": c.get("text"),
+                      "comment": c.get("comment"), "source": c.get("source")}
                      for c in session.comments()]
             rec["guesses_path"] = str(session.guesses / p.name)
             rec["queue_remaining"] = len(waiting) - 1

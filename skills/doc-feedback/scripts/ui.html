@@ -64,6 +64,16 @@
   #doc .math.display { display: block; margin: .8em 0; overflow-x: auto; text-align: center; }
   #doc .math.display:not(.typeset) { text-align: left; }
   #doc .math .katex-display { margin: 0; }
+  /* Comments on a whole paragraph or section: a bar in the left margin, and a tint while open. */
+  #doc [data-block] { position: relative; }
+  #doc .c-scoped::before { content: ""; position: absolute; left: -12px; top: 3px; bottom: 3px; width: 3px;
+                           border-radius: 2px; background: var(--mark-saved); }
+  #doc .c-scoped.c-saved::before { background: var(--mark-edge); }
+  #doc .c-active { background: var(--accent-soft); box-shadow: 0 0 0 6px var(--accent-soft); border-radius: 2px; }
+  #scope-btn { position: absolute; z-index: 4; display: none; padding: 0 6px; font-size: 13px; line-height: 22px;
+               color: var(--muted); }
+  #scope-btn.show { display: block; }
+  #scope-btn:hover { color: var(--accent); border-color: var(--accent); }
   mark.hl { background: var(--mark); color: inherit; border-radius: 2px; cursor: pointer; }
   mark.hl:has(> .math.display) { display: block; }
   mark.hl.saved { background: var(--mark-saved); border-bottom: 2px solid var(--mark-edge); }
@@ -71,7 +81,7 @@
   aside { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 84px);
           display: flex; flex-direction: column; gap: 10px; }
   aside h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0; }
-  #list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
+  #list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
   .item { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; cursor: pointer; }
   .item:hover { border-color: var(--line-hover); }
   .item.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
@@ -84,10 +94,10 @@
   .item .tag { font-size: 11px; color: var(--muted); }
   .empty { color: var(--muted); font-size: 14px; padding: 8px 2px; }
 
-  /* Comment popover: a dropdown whose options are editable. */
-  #pop { position: absolute; z-index: 20; width: 440px; max-width: calc(100vw - 24px);
-         background: var(--paper); border: 1px solid var(--line-strong); border-radius: 10px;
-         box-shadow: 0 12px 32px var(--shadow); display: none; }
+  /* Comment panel at the top of the sidebar, so it never covers the document:
+     a dropdown whose options are editable. */
+  #pop { flex: none; background: var(--paper); border: 1px solid var(--accent); border-radius: 10px;
+         box-shadow: 0 4px 14px var(--shadow); display: none; }
   #pop.open { display: block; }
   #pop .q { padding: 10px 14px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line);
             max-height: 72px; overflow: hidden; }
@@ -100,7 +110,7 @@
   .combo-head .caret { color: var(--muted); transition: transform .15s; }
   .combo.closed .caret { transform: rotate(-90deg); }
   .combo.closed .opts { display: none; }
-  .opts { border-top: 1px solid var(--line); max-height: max(320px, 60vh); overflow-y: auto; }
+  .opts { border-top: 1px solid var(--line); max-height: 45vh; overflow-y: auto; }
   .opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 10px; border-bottom: 1px solid var(--line-faint); }
   .opt:last-child { border-bottom: none; }
   .opt.sel { background: var(--accent-soft); }
@@ -121,40 +131,47 @@
              align-items: center; justify-content: center; text-align: center; }
   #overlay.open { display: flex; }
   #overlay div { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 28px 36px; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } aside { position: static; max-height: none; } }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; } aside { position: static; max-height: none; }
+    /* The sidebar is below the document here, so the panel sits at the bottom of the screen. */
+    #pop { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 20; max-height: 70vh; overflow-y: auto; }
+    .opts { max-height: 35vh; }
+  }
 </style>
 </head>
 <body>
 <header>
   <h1 id="title">Feedback</h1>
-  <span class="hint">Select any words or sentences to comment on them.</span>
+  <span class="hint">Select words or sentences to comment on them, or use ¶ and § in the margin for a whole paragraph or section.</span>
   <span class="spacer"></span>
   <span id="agent"><span class="dot"></span><span id="agent-text">connecting…</span></span>
+  <button id="doc-comment">Comment on the whole document</button>
   <button class="primary" id="finish">Finish &amp; send</button>
 </header>
 <main>
   <article id="doc">Loading…</article>
   <aside>
     <h2>Comments <span id="count"></span></h2>
+    <div id="pop" role="dialog" aria-label="Comment">
+      <div class="q"><span id="pop-on">On:</span> <b id="pop-quote"></b></div>
+      <div class="combo" id="combo">
+        <div class="combo-head" id="combo-head">
+          <span class="val placeholder" id="combo-val">Choose or write a comment</span>
+          <span class="caret">▾</span>
+        </div>
+        <div class="opts" id="opts"></div>
+      </div>
+      <div class="foot">
+        <span class="keys">Ctrl+Enter to save · Esc to close</span>
+        <button id="pop-cancel">Cancel</button>
+        <button class="primary" id="pop-save" disabled>Save</button>
+      </div>
+    </div>
     <div id="list"></div>
   </aside>
 </main>
 
-<div id="pop" role="dialog" aria-label="Comment">
-  <div class="q">On: <b id="pop-quote"></b></div>
-  <div class="combo" id="combo">
-    <div class="combo-head" id="combo-head">
-      <span class="val placeholder" id="combo-val">Choose or write a comment</span>
-      <span class="caret">▾</span>
-    </div>
-    <div class="opts" id="opts"></div>
-  </div>
-  <div class="foot">
-    <span class="keys">Ctrl+Enter to save · Esc to close</span>
-    <button id="pop-cancel">Cancel</button>
-    <button class="primary" id="pop-save" disabled>Save</button>
-  </div>
-</div>
+<button id="scope-btn"></button>
 
 <div id="overlay"><div>
   <h2 style="margin-top:0">Feedback sent</h2>
@@ -166,9 +183,10 @@
 const $ = (id) => document.getElementById(id);
 const docEl = $("doc"), pop = $("pop"), opts = $("opts");
 
-// id -> {id, text, paragraph, section, block, start, guesses, rows, sel, comment, source, guessIndex, status}
+// id -> {id, scope, text, paragraph, section, block, start, guesses, rows, sel, comment, source, guessIndex, status}
+// scope is "selection" (a highlighted passage) or "paragraph", "section", or "document" (the whole thing).
 const H = new Map();
-let current = null;       // id of the highlight open in the popover
+let current = null;       // id of the highlight open in the comment panel
 let finished = false;
 
 async function api(path, body) {
@@ -253,12 +271,42 @@ function unwrap(id) {
   });
 }
 function marksOf(id) { return [...document.querySelectorAll(`mark.hl[data-id="${id}"]`)]; }
+const blockEl = (n) => docEl.querySelector(`[data-block="${n}"]`);
+const isHeading = (el) => /^H[1-6]$/.test(el.tagName);
+// A section is its heading plus every block up to the next heading of the same or a higher level.
+function sectionEls(heading) {
+  const out = [heading], level = +heading.tagName[1];
+  for (let el = heading.nextElementSibling; el && !(isHeading(el) && +el.tagName[1] <= level); el = el.nextElementSibling)
+    out.push(el);
+  return out;
+}
+// The elements a comment is about, and the one the sidebar scrolls to.
+function targetEls(h) {
+  if (h.scope === "document") return [];
+  if (h.scope === "selection") return marksOf(h.id);
+  const b = blockEl(h.block); if (!b) return [];
+  return h.scope === "section" ? sectionEls(b) : [b];
+}
+function anchorOf(h) {
+  if (h.scope === "document") return $("doc-comment");
+  const els = targetEls(h);
+  return h.scope === "selection" ? els[els.length - 1] : els[0];
+}
 function paintMarks() {
-  for (const h of H.values())
-    marksOf(h.id).forEach((m) => {
-      m.classList.toggle("saved", h.status === "saved");
-      m.classList.toggle("active", h.id === current);
-    });
+  docEl.querySelectorAll(".c-scoped, .c-active").forEach((el) => el.classList.remove("c-scoped", "c-saved", "c-active"));
+  for (const h of H.values()) {
+    if (h.scope === "selection") {
+      marksOf(h.id).forEach((m) => {
+        m.classList.toggle("saved", h.status === "saved");
+        m.classList.toggle("active", h.id === current);
+      });
+    } else if (h.scope !== "document") {
+      const els = targetEls(h); if (!els.length) continue;
+      els[0].classList.add("c-scoped");
+      if (h.status === "saved") els[0].classList.add("c-saved");
+      if (h.id === current) els.forEach((el) => el.classList.add("c-active"));
+    }
+  }
 }
 
 // ---------- making a highlight ----------
@@ -284,17 +332,66 @@ docEl.addEventListener("mouseup", (e) => {
   sel.removeAllRanges();
   const id = newId();
   const h = {
-    id, text: blockText.slice(s, t),
+    id, scope: "selection", text: blockText.slice(s, t),
     paragraph: textOf(contextOf(range.startContainer)).trim(),
     section: sectionOf(startBlock), block: +startBlock.dataset.block, start: s,
     guesses: null, rows: [], own: "", sel: -1, status: "draft",
   };
   H.set(id, h);
   wrapRange(startBlock, s, t, id);
-  api("/highlight", { id, text: h.text, paragraph: h.paragraph, section: h.section });
+  api("/highlight", { id, scope: "selection", text: h.text, paragraph: h.paragraph, section: h.section });
   pollGuesses(id);
   openPop(id);
   renderList();
+});
+
+// ---------- comments on a whole paragraph, section, or document ----------
+// Each one has a single comment; asking again reopens it.
+function commentOnWhole(scope, block) {
+  if (finished) return;
+  const n = block ? +block.dataset.block : -1;
+  const old = [...H.values()].find((h) => h.scope === scope && h.block === n);
+  if (old) return openPop(old.id);
+  const id = newId();
+  const text = scope === "document" ? $("title").textContent : textOf(block).trim();
+  const h = {
+    id, scope, text, paragraph: scope === "paragraph" ? text : "",
+    section: scope === "document" ? "" : scope === "section" ? text : sectionOf(block), block: n, start: -1,
+    guesses: null, rows: [], own: "", sel: -1, status: "draft",
+  };
+  H.set(id, h);
+  api("/highlight", { id, scope, text: h.text, paragraph: h.paragraph, section: h.section });
+  pollGuesses(id);
+  openPop(id);
+  renderList();
+}
+$("doc-comment").addEventListener("click", () => commentOnWhole("document", null));
+
+// Hovering a block shows ¶ (this paragraph) or, on a heading, § (this section) in the left margin.
+const scopeBtn = $("scope-btn");
+let hoverBlock = null;
+docEl.addEventListener("mousemove", (e) => {
+  const b = e.target.closest && e.target.closest("[data-block]");
+  if (finished || !b || !docEl.contains(b) || b === hoverBlock) return;
+  hoverBlock = b;
+  const sec = isHeading(b);
+  scopeBtn.textContent = sec ? "§" : "¶";
+  scopeBtn.title = sec ? "Comment on this whole section" : "Comment on this whole paragraph";
+  const d = docEl.getBoundingClientRect(), r = b.getBoundingClientRect();
+  scopeBtn.style.left = (d.left + window.scrollX + 8) + "px";
+  scopeBtn.style.top = (r.top + window.scrollY) + "px";
+  scopeBtn.classList.add("show");
+});
+docEl.addEventListener("mouseleave", (e) => {
+  if (e.relatedTarget === scopeBtn) return;
+  scopeBtn.classList.remove("show"); hoverBlock = null;
+});
+scopeBtn.addEventListener("mouseleave", (e) => {
+  if (docEl.contains(e.relatedTarget)) return;
+  scopeBtn.classList.remove("show"); hoverBlock = null;
+});
+scopeBtn.addEventListener("click", () => {
+  if (hoverBlock) commentOnWhole(isHeading(hoverBlock) ? "section" : "paragraph", hoverBlock);
 });
 
 docEl.addEventListener("click", (e) => {
@@ -323,26 +420,21 @@ async function pollGuesses(id) {
   }
 }
 
-// ---------- popover / editable dropdown ----------
+// ---------- comment panel / editable dropdown ----------
 function openPop(id) {
   const h = H.get(id); if (!h) return;
   if (current && current !== id) closePop(false);
   current = id;
+  $("pop-on").textContent = { selection: "On:", paragraph: "On this whole paragraph:",
+                              section: "On this whole section:", document: "On the whole document:" }[h.scope];
   $("pop-quote").textContent = h.text.length > 220 ? h.text.slice(0, 220) + "…" : h.text;
   $("combo").classList.remove("closed");
   renderOpts(false);
   pop.classList.add("open");
-  growAll();
-  position(id);
+  growAll(); keepVisible();
   paintMarks(); renderList();
   const own = opts.querySelector(".own textarea");
   if (h.status === "saved" && h.sel >= 0) focusRow(h.sel); else if (!h.guesses && own) own.focus({ preventScroll: true });
-}
-function position(id) {
-  const m = marksOf(id); if (!m.length) { pop.style.top = (window.scrollY + 90) + "px"; pop.style.left = "40px"; return; }
-  const r = m[m.length - 1].getBoundingClientRect(), w = pop.offsetWidth;
-  const left = Math.min(Math.max(8, r.left + window.scrollX - 20), window.scrollX + document.documentElement.clientWidth - w - 12);
-  pop.style.left = left + "px"; pop.style.top = (r.bottom + window.scrollY + 8) + "px";
 }
 function rowIndexOwn(h) { return h.rows.length; }  // the "write my own" row comes last
 function renderOpts(keepFocus) {
@@ -363,6 +455,17 @@ function renderOpts(keepFocus) {
   }
   growAll();
   syncHead();
+  keepVisible();
+}
+// On a narrow screen the panel covers the bottom of the window. Pad the page by
+// its height and scroll so the text being commented on stays above it.
+function keepVisible() {
+  const h = H.get(current);
+  if (!h || getComputedStyle(pop).position !== "fixed") { document.body.style.paddingBottom = ""; return; }
+  document.body.style.paddingBottom = (pop.offsetHeight + 16) + "px";
+  const a = h.scope === "document" ? null : anchorOf(h); if (!a) return;
+  const bottom = a.getBoundingClientRect().bottom, limit = pop.getBoundingClientRect().top - 12;
+  if (bottom > limit) window.scrollBy({ top: bottom - limit, behavior: "smooth" });
 }
 function updateLoading() {
   const h = H.get(current), el = $("loading-text"); if (!h || !el) return;
@@ -389,7 +492,7 @@ function makeRow(h, i, txt, isOwn) {
   return row;
 }
 // Fit a textarea to its text. It must be visible to measure, so growAll() runs
-// again whenever the popover or the dropdown opens. The border is added back
+// again whenever the panel or the dropdown opens. The border is added back
 // because scrollHeight leaves it out.
 function grow(ta) {
   if (!ta.offsetParent) return;
@@ -421,7 +524,7 @@ $("combo-head").addEventListener("click", () => { $("combo").classList.toggle("c
 function closePop(discardIfDraft) {
   const h = H.get(current);
   if (h && discardIfDraft && h.status === "draft") removeHighlight(h.id);
-  current = null; pop.classList.remove("open");
+  current = null; pop.classList.remove("open"); document.body.style.paddingBottom = "";
   paintMarks(); renderList();
 }
 function removeHighlight(id) {
@@ -438,7 +541,7 @@ async function save() {
   h.comment = comment; h.status = "saved"; h.guessIndex = own ? -1 : h.sel;
   h.source = own ? "own" : edited ? "edited-guess" : "guess";
   await api("/comment", {
-    id: h.id, text: h.text, paragraph: h.paragraph, section: h.section, block: h.block, start: h.start,
+    id: h.id, scope: h.scope, text: h.text, paragraph: h.paragraph, section: h.section, block: h.block, start: h.start,
     comment, source: h.source, guess_index: h.guessIndex, guesses: h.guesses || [],
   });
   closePop(false);
@@ -451,10 +554,10 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); }
 });
 document.addEventListener("mousedown", (e) => {
-  if (pop.classList.contains("open") && !pop.contains(e.target) && !e.target.closest("mark.hl, .item"))
+  if (pop.classList.contains("open") && !pop.contains(e.target) && !e.target.closest("mark.hl, .item, #scope-btn, #doc-comment"))
     closePop(false);  // keep drafts; they stay in the sidebar
 });
-window.addEventListener("resize", () => { if (current) { growAll(); position(current); } });
+window.addEventListener("resize", () => { if (current) { growAll(); keepVisible(); } });
 
 // ---------- sidebar ----------
 function renderList() {
@@ -465,7 +568,8 @@ function renderList() {
   for (const h of items) {
     const d = document.createElement("div");
     d.className = "item" + (h.status === "draft" ? " draft" : "") + (h.id === current ? " active" : "");
-    const q = document.createElement("div"); q.className = "quote"; q.textContent = h.text;
+    const q = document.createElement("div"); q.className = "quote";
+    q.textContent = { selection: "", paragraph: "¶ ", section: "§ ", document: "Whole document: " }[h.scope] + h.text;
     const t = document.createElement("div"); t.className = "text";
     t.textContent = h.status === "saved" ? h.comment : h.guesses ? "Guesses ready — click to choose" : "Awaiting comment…";
     const row = document.createElement("div"); row.className = "row";
@@ -480,7 +584,8 @@ function renderList() {
     });
     row.append(tag, del); d.append(q, t, row);
     d.addEventListener("click", () => {
-      const m = marksOf(h.id)[0]; if (m) m.scrollIntoView({ block: "center", behavior: "smooth" });
+      const m = h.scope === "document" ? null : anchorOf(h);
+      if (m) m.scrollIntoView({ block: "center", behavior: "smooth" });
       setTimeout(() => openPop(h.id), m ? 250 : 0);
     });
     list.appendChild(d);
@@ -522,6 +627,15 @@ function loadKatex() {
   document.head.appendChild(s);
 }
 
+// A paragraph or section comment keeps its block if the text there still matches,
+// or else moves to the block (a heading, for a section) whose text does.
+function reanchorWhole(h) {
+  const fits = (b) => b && textOf(b).trim() === h.text && (h.scope === "section") === isHeading(b);
+  if (fits(blockEl(h.block))) return;
+  const b = [...docEl.querySelectorAll("[data-block]")].find(fits);
+  if (b) h.block = +b.dataset.block;
+}
+
 // ---------- startup: render document, restore saved comments ----------
 (async function init() {
   const doc = await fetch("/doc").then((r) => r.json());
@@ -530,12 +644,13 @@ function loadKatex() {
   loadKatex();
   const st = await fetch("/state").then((r) => r.json());
   for (const c of st.comments || []) {
-    const h = { id: c.id, text: c.text, paragraph: c.paragraph, section: c.section, block: c.block ?? 1e9,
+    const h = { id: c.id, scope: c.scope || "selection", text: c.text, paragraph: c.paragraph, section: c.section, block: c.block ?? 1e9,
                 start: c.start ?? 0, guesses: c.guesses || [], rows: (c.guesses || []).slice(), own: "",
                 comment: c.comment, source: c.source, guessIndex: c.guess_index ?? -1, status: "saved" };
     if (h.guessIndex >= 0 && h.guessIndex < h.rows.length) { h.rows[h.guessIndex] = c.comment; h.sel = h.guessIndex; }
     else { h.own = c.comment; h.sel = h.rows.length; }
     H.set(h.id, h);
+    if (h.scope !== "selection") { if (h.scope !== "document") reanchorWhole(h); continue; }
     // Re-anchor: try the stored offset, then search the block, then the whole document.
     let block = docEl.querySelector(`[data-block="${h.block}"]`), s = h.start;
     if (!block || textOf(block).slice(s, s + h.text.length) !== h.text) {
