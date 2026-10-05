@@ -62,6 +62,12 @@
   #doc th, #doc td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
   #doc blockquote { margin: 1em 0; padding-left: 14px; border-left: 3px solid var(--line); color: var(--quote-ink); }
   #doc li.sub { margin-left: 1.6em; }
+  #doc img, #doc video { display: block; max-width: 100%; height: auto; margin: .6em auto; }
+  /* A figure with a comment gets an outline instead of the margin bar. */
+  #doc img { cursor: pointer; }
+  #doc img.c-scoped { outline: 3px solid var(--mark-saved); outline-offset: 3px; }
+  #doc img.c-scoped.c-saved { outline-color: var(--mark-edge); }
+  #doc img.c-active, #doc img.c-scoped.c-active { outline: 3px solid var(--accent); outline-offset: 3px; }
   #doc ::selection { background: var(--select); }
   #doc .math:not(.typeset) { font-family: ui-monospace, Consolas, monospace; font-size: .88em; white-space: pre-wrap; }
   #doc .math.display { display: block; margin: .8em 0; overflow-x: auto; text-align: center; }
@@ -150,7 +156,7 @@
 <body>
 <header>
   <h1 id="title">Feedback</h1>
-  <span class="hint" title="Select words or sentences to comment on them, or use ¶ and § in the margin for a whole paragraph or section.">Select words or sentences to comment on them, or use ¶ and § in the margin for a whole paragraph or section.</span>
+  <span class="hint" title="Select words or sentences to comment on them, use ¶ and § in the margin for a whole paragraph or section, or click a figure.">Select words or sentences to comment on them, use ¶ and § in the margin for a whole paragraph or section, or click a figure.</span>
   <span class="spacer"></span>
   <span id="agent"><span class="dot"></span><span id="agent-text">connecting…</span></span>
   <button id="doc-comment">Comment on the whole document</button>
@@ -194,7 +200,8 @@ const docEl = $("doc"), pop = $("pop"), opts = $("opts");
 // id -> {id, scope, text, paragraph, section, block, start, guesses, rows, own, sels, parts, comment, source, status}
 // sels holds the ticked rows by key: "g0", "g1", … for guesses and "own" for the user's own row,
 // so a tick stays on its row when guesses arrive. parts is what was saved, one entry per ticked row.
-// scope is "selection" (a highlighted passage) or "paragraph", "section", or "document" (the whole thing).
+// scope is "selection" (a highlighted passage), "paragraph", "section", or "document" (the whole thing), or
+// "figure" (one image; start is its index among the images in its block, and figure is its src).
 const H = new Map();
 let current = null;       // id of the highlight open in the comment panel
 let finished = false;
@@ -295,6 +302,7 @@ function targetEls(h) {
   if (h.scope === "document") return [];
   if (h.scope === "selection") return marksOf(h.id);
   const b = blockEl(h.block); if (!b) return [];
+  if (h.scope === "figure") { const im = b.querySelectorAll("img")[h.start]; return im ? [im] : []; }
   return h.scope === "section" ? sectionEls(b) : [b];
 }
 function anchorOf(h) {
@@ -355,56 +363,67 @@ docEl.addEventListener("mouseup", (e) => {
   renderList();
 });
 
-// ---------- comments on a whole paragraph, section, or document ----------
+// ---------- comments on a whole paragraph, section, document, or figure ----------
 // Each one has a single comment; asking again reopens it.
-function commentOnWhole(scope, block) {
+function commentOnWhole(scope, block, img) {
   if (finished) return;
   const n = block ? +block.dataset.block : -1;
-  const old = [...H.values()].find((h) => h.scope === scope && h.block === n);
+  const idx = img ? [...block.querySelectorAll("img")].indexOf(img) : -1;
+  const old = [...H.values()].find((h) => h.scope === scope && h.block === n && (h.start ?? -1) === idx);
   if (old) return openPop(old.id);
+  const src = img ? img.getAttribute("src") : "";
+  const text = scope === "document" ? $("title").textContent
+             : scope === "figure" ? (img.alt.trim() || src) : textOf(block).trim();
+  if (!text) return;
   const id = newId();
-  const text = scope === "document" ? $("title").textContent : textOf(block).trim();
   const h = {
-    id, scope, text, paragraph: scope === "paragraph" ? text : "",
-    section: scope === "document" ? "" : scope === "section" ? text : sectionOf(block), block: n, start: -1,
+    id, scope, text, figure: src, paragraph: scope === "paragraph" ? text : scope === "figure" ? textOf(block).trim() : "",
+    section: scope === "document" ? "" : scope === "section" ? text : sectionOf(block), block: n, start: idx,
     guesses: null, rows: [], own: "", sels: new Set(), status: "draft",
   };
   H.set(id, h);
-  api("/highlight", { id, scope, text: h.text, paragraph: h.paragraph, section: h.section });
+  api("/highlight", { id, scope, text: h.text, figure: src, paragraph: h.paragraph, section: h.section });
   pollGuesses(id);
   openPop(id);
   renderList();
 }
 $("doc-comment").addEventListener("click", () => commentOnWhole("document", null));
 
-// Hovering a block shows ¶ (this paragraph) or, on a heading, § (this section) in the left margin.
+// Hovering a block shows ¶ (this paragraph), § (on a heading: this section), or Fig (on a
+// figure, or a paragraph that is only figures: this figure) in the left margin.
 const scopeBtn = $("scope-btn");
-let hoverBlock = null;
+let hoverBlock = null, hoverKind = "", hoverImg = null;
 docEl.addEventListener("mousemove", (e) => {
-  const b = e.target.closest && e.target.closest("[data-block]");
-  if (finished || !b || !docEl.contains(b) || b === hoverBlock) return;
-  hoverBlock = b;
-  const sec = isHeading(b);
-  scopeBtn.textContent = sec ? "§" : "¶";
-  scopeBtn.title = sec ? "Comment on this whole section" : "Comment on this whole paragraph";
-  const d = docEl.getBoundingClientRect(), r = b.getBoundingClientRect();
+  if (finished || !e.target.closest) return;
+  const b = e.target.closest("[data-block]");
+  if (!b || !docEl.contains(b)) return;
+  const img = e.target.closest("img") || (!textOf(b).trim() && b.querySelector("img")) || null;
+  if (b === hoverBlock && img === hoverImg) return;
+  hoverBlock = b; hoverImg = img;
+  hoverKind = img ? "figure" : isHeading(b) ? "section" : "paragraph";
+  scopeBtn.textContent = { figure: "Fig", section: "§", paragraph: "¶" }[hoverKind];
+  scopeBtn.title = { figure: "Comment on this figure", section: "Comment on this whole section",
+                     paragraph: "Comment on this whole paragraph" }[hoverKind];
+  const d = docEl.getBoundingClientRect(), r = (img || b).getBoundingClientRect();
   scopeBtn.style.left = (d.left + window.scrollX + 4) + "px";
   scopeBtn.style.top = (r.top + window.scrollY) + "px";
   scopeBtn.classList.add("show");
 });
 docEl.addEventListener("mouseleave", (e) => {
   if (e.relatedTarget === scopeBtn) return;
-  scopeBtn.classList.remove("show"); hoverBlock = null;
+  scopeBtn.classList.remove("show"); hoverBlock = hoverImg = null;
 });
 scopeBtn.addEventListener("mouseleave", (e) => {
   if (docEl.contains(e.relatedTarget)) return;
-  scopeBtn.classList.remove("show"); hoverBlock = null;
+  scopeBtn.classList.remove("show"); hoverBlock = hoverImg = null;
 });
 scopeBtn.addEventListener("click", () => {
-  if (hoverBlock) commentOnWhole(isHeading(hoverBlock) ? "section" : "paragraph", hoverBlock);
+  if (hoverBlock) commentOnWhole(hoverKind, hoverBlock, hoverImg);
 });
 
 docEl.addEventListener("click", (e) => {
+  if (e.target.tagName === "IMG" && window.getSelection().isCollapsed && !finished)
+    return commentOnWhole("figure", blockOf(e.target), e.target);
   const m = e.target.closest("mark.hl");
   if (m && window.getSelection().isCollapsed) openPop(m.dataset.id);
 });
@@ -437,7 +456,8 @@ function openPop(id) {
   if (current && current !== id) closePop(false);
   current = id;
   $("pop-on").textContent = { selection: "On:", paragraph: "On this whole paragraph:",
-                              section: "On this whole section:", document: "On the whole document:" }[h.scope];
+                              section: "On this whole section:", document: "On the whole document:",
+                              figure: "On this figure:" }[h.scope];
   $("pop-quote").textContent = h.text.length > 220 ? h.text.slice(0, 220) + "…" : h.text;
   $("combo").classList.remove("closed");
   renderOpts(false);
@@ -567,7 +587,7 @@ async function save() {
   h.parts = parts; h.comment = joinParts(parts); h.status = "saved";
   h.source = kinds.size === 1 ? parts[0].source : "mixed";
   await api("/comment", {
-    id: h.id, scope: h.scope, text: h.text, paragraph: h.paragraph, section: h.section, block: h.block, start: h.start,
+    id: h.id, scope: h.scope, text: h.text, figure: h.figure || "", paragraph: h.paragraph, section: h.section, block: h.block, start: h.start,
     comment: h.comment, source: h.source, parts, guesses: h.guesses || [],
   });
   if (current === h.id) closePop(false);  // the user may have opened another comment meanwhile
@@ -604,7 +624,8 @@ function renderList() {
     const d = document.createElement("div");
     d.className = "item" + (h.status === "draft" ? " draft" : "");
     const q = document.createElement("div"); q.className = "quote";
-    q.textContent = { selection: "", paragraph: "¶ ", section: "§ ", document: "Whole document: " }[h.scope] + h.text;
+    q.textContent = { selection: "", paragraph: "¶ ", section: "§ ", document: "Whole document: ",
+                      figure: /^fig/i.test(h.text) ? "" : "Figure: " }[h.scope] + h.text;
     const t = document.createElement("div"); t.className = "text";
     t.textContent = h.status === "saved" ? h.comment : h.guesses ? "Guesses ready — click to choose" : "Awaiting comment…";
     const row = document.createElement("div"); row.className = "row";
@@ -665,6 +686,15 @@ function loadKatex() {
 // A paragraph or section comment keeps its block if the text there still matches,
 // or else moves to the block (a heading, for a section) whose text does.
 function reanchorWhole(h) {
+  if (h.scope === "figure") {
+    const same = (im) => im && im.getAttribute("src") === h.figure;
+    const b = blockEl(h.block);
+    if (b && same(b.querySelectorAll("img")[h.start])) return;
+    const im = [...docEl.querySelectorAll("img")].find(same); if (!im) return;
+    const bb = blockOf(im);
+    h.block = +bb.dataset.block; h.start = [...bb.querySelectorAll("img")].indexOf(im);
+    return;
+  }
   const fits = (b) => b && textOf(b).trim() === h.text && (h.scope === "section") === isHeading(b);
   if (fits(blockEl(h.block))) return;
   const b = [...docEl.querySelectorAll("[data-block]")].find(fits);
@@ -679,7 +709,7 @@ function reanchorWhole(h) {
   loadKatex();
   const st = await fetch("/state").then((r) => r.json());
   for (const c of st.comments || []) {
-    const h = { id: c.id, scope: c.scope || "selection", text: c.text, paragraph: c.paragraph, section: c.section, block: c.block ?? 1e9,
+    const h = { id: c.id, scope: c.scope || "selection", text: c.text, figure: c.figure || "", paragraph: c.paragraph, section: c.section, block: c.block ?? 1e9,
                 start: c.start ?? 0, guesses: c.guesses || [], rows: (c.guesses || []).slice(), own: "",
                 comment: c.comment, source: c.source, sels: new Set(), status: "saved",
                 parts: c.parts || [{ text: c.comment, source: c.source, guess_index: c.guess_index ?? -1 }] };

@@ -24,11 +24,13 @@ Standard library only.
 import argparse
 import html
 import json
+import mimetypes
 import os
 import re
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -73,8 +75,10 @@ def _inline(text):
     text = re.sub(r"`([^`]+)`", lambda m: keep("<code>" + html.escape(m.group(1)) + "</code>"), text)
     text = MATH_INLINE_RE.sub(math, text)
     text = html.escape(text)
-    text = re.sub(r"!\[([^\]]*)\]\(([^)\s]+)[^)]*\)", r'<img alt="\1" src="\2">', text)
-    text = re.sub(r"\[([^\]]+)\]\(([^)\s]+)[^)]*\)", r'<a href="\2" target="_blank" rel="noopener">\1</a>', text)
+    text = re.sub(r"!\[([^\]]*)\]\(([^)\s]+)[^)]*\)",
+                  lambda m: keep('<img alt="%s" src="%s">' % (m.group(1), m.group(2))), text)
+    text = re.sub(r"\[([^\]]+)\]\(([^)\s]+)[^)]*\)",
+                  lambda m: keep('<a href="%s" target="_blank" rel="noopener">' % m.group(2)) + m.group(1) + keep("</a>"), text)
     text = re.sub(r"\*\*(.+?)\*\*|__(.+?)__", lambda m: "<strong>%s</strong>" % (m.group(1) or m.group(2)), text)
     text = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"<em>\1</em>", text)
     text = re.sub(r"(?<![\w_])_(?!\s)(.+?)(?<!\s)_(?![\w_])", r"<em>\1</em>", text)
@@ -234,12 +238,25 @@ class Session:
 # HTTP server
 # --------------------------------------------------------------------------
 
-# What a comment is about: a selected passage, or a whole paragraph, section, or document.
-SCOPES = ("selection", "paragraph", "section", "document")
+# What a comment is about: a selected passage, a whole paragraph, section, or document, or a figure.
+SCOPES = ("selection", "paragraph", "section", "document", "figure")
 
 
 def _scope(body):
     return body.get("scope") if body.get("scope") in SCOPES else "selection"
+
+
+# Files the document embeds (figures, animations, videos), served from the document's
+# folder or below it, so relative paths like figures/fig01.png work.
+ASSET_TYPES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp", ".ico", ".avif", ".mp4", ".webm"}
+
+
+def _asset(doc_path, url_path):
+    root = Path(doc_path).parent.resolve()
+    f = (root / urllib.parse.unquote(url_path).lstrip("/")).resolve()
+    if f.suffix.lower() in ASSET_TYPES and f.is_file() and (f == root or root in f.parents):
+        return f
+    return None
 
 
 def make_handler(session, doc_path):
@@ -283,6 +300,9 @@ def make_handler(session, doc_path):
                     "done": session.done_path.exists(),
                     "agent_seconds_ago": None if beat is None else round(time.time() - beat),
                 })
+            elif _asset(doc_path, path):
+                f = _asset(doc_path, path)
+                self._send(200, f.read_bytes(), mimetypes.guess_type(f.name)[0] or "application/octet-stream")
             elif path.startswith("/guesses/"):
                 hid = self._id(path[len("/guesses/"):])
                 if not hid:
@@ -308,7 +328,7 @@ def make_handler(session, doc_path):
                     hid = self._id(body.get("id"))
                     if not hid or not str(body.get("text", "")).strip():
                         return self._json({"error": "bad highlight"}, 400)
-                    rec = {k: body.get(k) for k in ("id", "text", "paragraph", "section")}
+                    rec = {k: body.get(k) for k in ("id", "text", "figure", "paragraph", "section")}
                     rec["scope"] = _scope(body)
                     rec["created"] = time.strftime("%Y-%m-%dT%H:%M:%S")
                     _write_json(session.pending / (hid + ".json"), rec)
@@ -324,7 +344,7 @@ def make_handler(session, doc_path):
                     hid = self._id(body.get("id"))
                     if not hid or not str(body.get("comment", "")).strip():
                         return self._json({"error": "bad comment"}, 400)
-                    keys = ("id", "text", "paragraph", "section", "block", "start", "comment",
+                    keys = ("id", "text", "figure", "paragraph", "section", "block", "start", "comment",
                             "source", "parts", "guesses")
                     rec = {k: body.get(k) for k in keys}
                     rec["scope"] = _scope(body)
