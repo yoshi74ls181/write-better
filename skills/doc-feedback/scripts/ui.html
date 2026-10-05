@@ -84,7 +84,7 @@
   aside { position: sticky; top: 52px; align-self: start; max-height: calc(100vh - 60px);
           display: flex; flex-direction: column; gap: 10px; }
   aside h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0; }
-  #list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
+  #list { flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
   .item { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
   .item:hover { border-color: var(--line-hover); }
   .item .quote { font-size: 13px; color: var(--muted); border-left: 3px solid var(--mark-saved);
@@ -98,24 +98,27 @@
 
   /* Comment panel at the top of the sidebar, so it never covers the document:
      a dropdown whose options are editable. */
-  #pop { flex: none; background: var(--paper); border: 1px solid var(--accent); border-radius: 10px;
+  #pop { flex: 0 1 auto; min-height: 0; flex-direction: column; background: var(--paper); border: 1px solid var(--accent); border-radius: 10px;
          box-shadow: 0 4px 14px var(--shadow); display: none; }
-  #pop.open { display: block; }
+  #pop.open { display: flex; }  /* fits the sidebar; the guess list scrolls inside it */
   #pop .q { padding: 8px 10px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line);
             max-height: 72px; overflow: hidden; }
   #pop .q b { color: var(--ink); font-weight: 500; }
-  .combo { margin: 8px 8px 0; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+  .combo { display: flex; flex-direction: column; min-height: 0; margin: 8px 8px 0; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
   .combo-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer;
                 background: var(--raised); font-size: 14px; user-select: none; }
-  .combo-head .val { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .combo-head .val { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box;
+                    -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  #pop .q, #pop .foot, .combo-head { flex: none; }
   .combo-head .val.placeholder { color: var(--muted); }
   .combo-head .caret { color: var(--muted); transition: transform .15s; }
   .combo.closed .caret { transform: rotate(-90deg); }
   .combo.closed .opts { display: none; }
-  .opts { border-top: 1px solid var(--line); max-height: 45vh; overflow-y: auto; }
+  .opts { border-top: 1px solid var(--line); min-height: 60px; overflow-y: auto; }
   .opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 10px; border-bottom: 1px solid var(--line-faint); }
   .opt:last-child { border-bottom: none; }
   .opt.sel { background: var(--accent-soft); }
+  .opt .pick { flex: none; margin: 9px 0 0; accent-color: var(--accent); cursor: pointer; }
   .opt .num { font-size: 11px; color: var(--muted); width: 14px; padding-top: 7px; text-align: right; flex: none; }
   .opt textarea { flex: 1; border: 1px solid transparent; border-radius: 5px; background: transparent;
                   font: 14px/1.4 system-ui, "Segoe UI", sans-serif; color: var(--ink); resize: none;
@@ -186,7 +189,9 @@
 const $ = (id) => document.getElementById(id);
 const docEl = $("doc"), pop = $("pop"), opts = $("opts");
 
-// id -> {id, scope, text, paragraph, section, block, start, guesses, rows, sel, comment, source, guessIndex, status}
+// id -> {id, scope, text, paragraph, section, block, start, guesses, rows, own, sels, parts, comment, source, status}
+// sels holds the ticked rows by key: "g0", "g1", … for guesses and "own" for the user's own row,
+// so a tick stays on its row when guesses arrive. parts is what was saved, one entry per ticked row.
 // scope is "selection" (a highlighted passage) or "paragraph", "section", or "document" (the whole thing).
 const H = new Map();
 let current = null;       // id of the highlight open in the comment panel
@@ -338,7 +343,7 @@ docEl.addEventListener("mouseup", (e) => {
     id, scope: "selection", text: blockText.slice(s, t),
     paragraph: textOf(contextOf(range.startContainer)).trim(),
     section: sectionOf(startBlock), block: +startBlock.dataset.block, start: s,
-    guesses: null, rows: [], own: "", sel: -1, status: "draft",
+    guesses: null, rows: [], own: "", sels: new Set(), status: "draft",
   };
   H.set(id, h);
   wrapRange(startBlock, s, t, id);
@@ -360,7 +365,7 @@ function commentOnWhole(scope, block) {
   const h = {
     id, scope, text, paragraph: scope === "paragraph" ? text : "",
     section: scope === "document" ? "" : scope === "section" ? text : sectionOf(block), block: n, start: -1,
-    guesses: null, rows: [], own: "", sel: -1, status: "draft",
+    guesses: null, rows: [], own: "", sels: new Set(), status: "draft",
   };
   H.set(id, h);
   api("/highlight", { id, scope, text: h.text, paragraph: h.paragraph, section: h.section });
@@ -411,7 +416,8 @@ async function pollGuesses(id) {
       if (r.ready) {
         h.guesses = r.guesses;
         h.rows = r.guesses.slice();
-        if (h.status === "saved" && h.guessIndex >= 0 && h.guessIndex < h.rows.length) h.rows[h.guessIndex] = h.comment;
+        if (h.status === "saved")
+          for (const part of h.parts) if (part.guess_index >= 0 && part.guess_index < h.rows.length) h.rows[part.guess_index] = part.text;
         if (current === id) renderOpts(true);
         renderList();
         return;
@@ -437,12 +443,11 @@ function openPop(id) {
   growAll(); keepVisible();
   paintMarks(); renderList();
   const own = opts.querySelector(".own textarea");
-  if (h.status === "saved" && h.sel >= 0) focusRow(h.sel); else if (!h.guesses && own) own.focus({ preventScroll: true });
+  if (h.status === "saved" && h.sels.size) focusRow([...h.sels][0]); else if (!h.guesses && own) own.focus({ preventScroll: true });
 }
-function rowIndexOwn(h) { return h.rows.length; }  // the "write my own" row comes last
 function renderOpts(keepFocus) {
   const h = H.get(current); if (!h) return;
-  const active = document.activeElement, activeIdx = active && active.dataset ? active.dataset.idx : null;
+  const active = document.activeElement, activeKey = active && active.dataset ? active.dataset.key : null;
   opts.innerHTML = "";
   if (!h.guesses) {
     const d = document.createElement("div");
@@ -451,9 +456,9 @@ function renderOpts(keepFocus) {
     opts.appendChild(d); updateLoading();
   }
   h.rows.forEach((txt, i) => opts.appendChild(makeRow(h, i, txt, false)));
-  opts.appendChild(makeRow(h, rowIndexOwn(h), h.own, true));
-  if (keepFocus && activeIdx !== null) {
-    const ta = opts.querySelector(`textarea[data-idx="${activeIdx}"]`);
+  opts.appendChild(makeRow(h, -1, h.own, true));  // the "write my own" row comes last
+  if (keepFocus && activeKey) {
+    const ta = opts.querySelector(`textarea[data-key="${activeKey}"]`);
     if (ta) { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); }
   }
   growAll();
@@ -474,24 +479,31 @@ function updateLoading() {
   const h = H.get(current), el = $("loading-text"); if (!h || !el) return;
   el.textContent = h.ahead > 0 ? `Guessing your comment… (${h.ahead} ahead in queue)` : "Guessing your comment…";
 }
+// Each row has a checkbox, and any number of rows can be ticked. Clicking the row
+// or its checkbox toggles it; clicking into the text or typing in it ticks it.
 function makeRow(h, i, txt, isOwn) {
+  const key = isOwn ? "own" : "g" + i;
   const row = document.createElement("div");
-  row.className = "opt" + (isOwn ? " own" : "") + (h.sel === i ? " sel" : "");
+  row.className = "opt" + (isOwn ? " own" : "") + (h.sels.has(key) ? " sel" : "");
+  const box = document.createElement("input");
+  box.type = "checkbox"; box.className = "pick"; box.tabIndex = -1; box.checked = h.sels.has(key);
+  box.title = isOwn ? "Include my own comment" : "Include this guess";
   const num = document.createElement("span"); num.className = "num"; num.textContent = isOwn ? "✎" : i + 1;
   const ta = document.createElement("textarea");
-  ta.rows = 1; ta.value = txt; ta.dataset.idx = i;
-  ta.placeholder = isOwn ? "None of these — write my own comment…" : "";
-  ta.addEventListener("focus", () => choose(i));
+  ta.rows = 1; ta.value = txt; ta.dataset.key = key;
+  ta.placeholder = isOwn ? "Write my own comment…" : "";
+  ta.addEventListener("mousedown", () => pick(key, true));
   ta.addEventListener("input", () => {
     if (isOwn) h.own = ta.value; else h.rows[i] = ta.value;
-    if (h.sel !== i) choose(i);
-    grow(ta); syncHead();
+    pick(key, true);
+    grow(ta);
   });
+  box.addEventListener("click", () => pick(key, box.checked));
   row.addEventListener("mousedown", (e) => {
-    choose(i);
-    if (e.target !== ta) { e.preventDefault(); ta.focus(); }
+    if (e.target === ta || e.target === box) return;
+    e.preventDefault(); pick(key, !h.sels.has(key));
   });
-  row.append(num, ta);
+  row.append(box, num, ta);
   return row;
 }
 // Fit a textarea to its text. It must be visible to measure, so growAll() runs
@@ -503,23 +515,33 @@ function grow(ta) {
   ta.style.height = (ta.scrollHeight + ta.offsetHeight - ta.clientHeight) + "px";
 }
 function growAll() { opts.querySelectorAll("textarea").forEach(grow); }
-function choose(i) {
+function pick(key, on) {
   const h = H.get(current); if (!h) return;
-  h.sel = i;
+  if (on) h.sels.add(key); else h.sels.delete(key);
   opts.querySelectorAll(".opt").forEach((r) => {
-    const ta = r.querySelector("textarea"); r.classList.toggle("sel", !!ta && +ta.dataset.idx === i);
+    const ta = r.querySelector("textarea"); if (!ta) return;
+    const sel = h.sels.has(ta.dataset.key);
+    r.classList.toggle("sel", sel); r.querySelector(".pick").checked = sel;
   });
   syncHead();
 }
-function focusRow(i) { const ta = opts.querySelector(`textarea[data-idx="${i}"]`); if (ta) ta.focus({ preventScroll: true }); }
-function chosenText(h) {
-  if (h.sel < 0) return "";
-  return (h.sel === rowIndexOwn(h) ? h.own : h.rows[h.sel] || "").trim();
+function focusRow(key) { const ta = opts.querySelector(`textarea[data-key="${key}"]`); if (ta) ta.focus({ preventScroll: true }); }
+// The ticked rows, in list order, each with where it came from.
+function chosenParts(h) {
+  const parts = [];
+  h.rows.forEach((txt, i) => {
+    const t = txt.trim(); if (!h.sels.has("g" + i) || !t) return;
+    const edited = t !== ((h.guesses && h.guesses[i]) || "").trim();
+    parts.push({ text: t, source: edited ? "edited-guess" : "guess", guess_index: i });
+  });
+  if (h.sels.has("own") && h.own.trim()) parts.push({ text: h.own.trim(), source: "own", guess_index: -1 });
+  return parts;
 }
+const joinParts = (parts) => parts.map((p) => p.text).join("\n");
 function syncHead() {
   const h = H.get(current); if (!h) return;
-  const t = chosenText(h), v = $("combo-val");
-  v.textContent = t || "Choose or write a comment"; v.classList.toggle("placeholder", !t);
+  const t = joinParts(chosenParts(h)), v = $("combo-val");
+  v.textContent = t || "Tick one or more, or write your own"; v.classList.toggle("placeholder", !t);
   $("pop-save").disabled = !t;
 }
 $("combo-head").addEventListener("click", () => { $("combo").classList.toggle("closed"); growAll(); });
@@ -538,16 +560,15 @@ $("pop-cancel").addEventListener("click", () => closePop(true));
 
 async function save() {
   const h = H.get(current); if (!h) return;
-  const comment = chosenText(h); if (!comment) return;
-  const own = h.sel === rowIndexOwn(h);
-  const edited = !own && h.guesses && comment !== (h.guesses[h.sel] || "").trim();
-  h.comment = comment; h.status = "saved"; h.guessIndex = own ? -1 : h.sel;
-  h.source = own ? "own" : edited ? "edited-guess" : "guess";
+  const parts = chosenParts(h); if (!parts.length) return;
+  const kinds = new Set(parts.map((p) => p.source));
+  h.parts = parts; h.comment = joinParts(parts); h.status = "saved";
+  h.source = kinds.size === 1 ? parts[0].source : "mixed";
   await api("/comment", {
     id: h.id, scope: h.scope, text: h.text, paragraph: h.paragraph, section: h.section, block: h.block, start: h.start,
-    comment, source: h.source, guess_index: h.guessIndex, guesses: h.guesses || [],
+    comment: h.comment, source: h.source, parts, guesses: h.guesses || [],
   });
-  closePop(false);
+  if (current === h.id) closePop(false);  // the user may have opened another comment meanwhile
 }
 $("pop-save").addEventListener("click", save);
 
@@ -563,6 +584,14 @@ document.addEventListener("mousedown", (e) => {
 window.addEventListener("resize", () => { if (current) { growAll(); keepVisible(); } });
 
 // ---------- sidebar ----------
+function sourceLabel(parts) {
+  const n = (src) => parts.filter((p) => p.source === src).length;
+  const bits = [];
+  if (n("guess")) bits.push(n("guess") > 1 ? `picked ${n("guess")} guesses` : "picked a guess");
+  if (n("edited-guess")) bits.push(n("edited-guess") > 1 ? `edited ${n("edited-guess")} guesses` : "edited a guess");
+  if (n("own")) bits.push("own words");
+  return bits.join(" + ");
+}
 function renderList() {
   const list = $("list"); list.innerHTML = "";
   const items = [...H.values()].sort((a, b) => a.block - b.block || a.start - b.start);
@@ -578,7 +607,7 @@ function renderList() {
     t.textContent = h.status === "saved" ? h.comment : h.guesses ? "Guesses ready — click to choose" : "Awaiting comment…";
     const row = document.createElement("div"); row.className = "row";
     const tag = document.createElement("span"); tag.className = "tag";
-    tag.textContent = h.status === "saved" ? { guess: "picked a guess", "edited-guess": "edited a guess", own: "own words" }[h.source] || "" : "draft";
+    tag.textContent = h.status === "saved" ? sourceLabel(h.parts) : "draft";
     const del = document.createElement("button"); del.className = "link"; del.textContent = "Delete";
     del.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -650,9 +679,12 @@ function reanchorWhole(h) {
   for (const c of st.comments || []) {
     const h = { id: c.id, scope: c.scope || "selection", text: c.text, paragraph: c.paragraph, section: c.section, block: c.block ?? 1e9,
                 start: c.start ?? 0, guesses: c.guesses || [], rows: (c.guesses || []).slice(), own: "",
-                comment: c.comment, source: c.source, guessIndex: c.guess_index ?? -1, status: "saved" };
-    if (h.guessIndex >= 0 && h.guessIndex < h.rows.length) { h.rows[h.guessIndex] = c.comment; h.sel = h.guessIndex; }
-    else { h.own = c.comment; h.sel = h.rows.length; }
+                comment: c.comment, source: c.source, sels: new Set(), status: "saved",
+                parts: c.parts || [{ text: c.comment, source: c.source, guess_index: c.guess_index ?? -1 }] };
+    for (const part of h.parts) {
+      if (part.guess_index >= 0 && part.guess_index < h.rows.length) { h.rows[part.guess_index] = part.text; h.sels.add("g" + part.guess_index); }
+      else { h.own = h.own ? h.own + "\n" + part.text : part.text; h.sels.add("own"); }
+    }
     H.set(h.id, h);
     if (h.scope !== "selection") { if (h.scope !== "document") reanchorWhole(h); continue; }
     // Re-anchor: try the stored offset, then search the block, then the whole document.

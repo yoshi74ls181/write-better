@@ -322,7 +322,7 @@ def make_handler(session, doc_path):
                     if not hid or not str(body.get("comment", "")).strip():
                         return self._json({"error": "bad comment"}, 400)
                     keys = ("id", "text", "paragraph", "section", "block", "start", "comment",
-                            "source", "guess_index", "guesses")
+                            "source", "parts", "guesses")
                     rec = {k: body.get(k) for k in keys}
                     rec["scope"] = _scope(body)
                     now = time.strftime("%Y-%m-%dT%H:%M:%S")

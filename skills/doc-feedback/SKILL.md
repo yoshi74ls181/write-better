@@ -1,6 +1,6 @@
 ---
 name: doc-feedback
-description: Collect the user's feedback on a document (a report, paper, proposal, doc, email draft, or any other text) through a local browser GUI. The user highlights words or sentences, or picks a whole paragraph, section, or the entire document, and the agent guesses the likely comment live (offered in an editable drop-down); afterwards the comments become fixes to the document. Feedback can be technical (correctness, derivations, methods, missing results, code) or about the writing. Only writing preferences that carry over to future documents go into the user's shared writing-style file (~/.claude/writing-style.md), which the careful-writer skill reads. Use when the user wants to review, mark up, comment on, or give feedback on a document, or wants to teach or update their writing style.
+description: Collect the user's feedback on a document (a report, paper, proposal, doc, email draft, or any other text) through a local browser GUI. The user highlights words or sentences, or picks a whole paragraph, section, or the entire document, and the agent guesses the likely comment live (offered as editable options, of which the user can tick one or several); afterwards the comments become fixes to the document. Feedback can be technical (correctness, derivations, methods, missing results, code) or about the writing. Only writing preferences that carry over to future documents go into the user's shared writing-style file (~/.claude/writing-style.md), which the careful-writer skill reads. Use when the user wants to review, mark up, comment on, or give feedback on a document, or wants to teach or update their writing style.
 ---
 
 # doc-feedback
@@ -44,7 +44,7 @@ Repeat until the session is done:
    It blocks until something happens and prints one JSON object:
    - `{"idle": true}`: nothing yet. Run `next` again immediately.
    - `{"done": true, ...}`: the user finished. Go to Step 3.
-   - A highlight: `id`, `scope`, `text`, `paragraph`, `section`, `guesses_path`, `queue_remaining`, and `prior_comments` (everything saved so far this session, with `source` showing whether they picked a guess as is, edited one, or wrote their own). Math arrives as its TeX source, such as `$a_i$`. `scope` says what the comment is about: `selection` (the highlighted passage in `text`), `paragraph` (the whole paragraph, also in `text`), `section` (the whole section; `text` is only its heading), or `document` (the whole document; `text` is only its file name).
+   - A highlight: `id`, `scope`, `text`, `paragraph`, `section`, `guesses_path`, `queue_remaining`, and `prior_comments` (everything saved so far this session, with `source` showing whether they picked guesses as is (`guess`), edited one (`edited-guess`), wrote their own (`own`), or combined these (`mixed`)). Math arrives as its TeX source, such as `$a_i$`. `scope` says what the comment is about: `selection` (the highlighted passage in `text`), `paragraph` (the whole paragraph, also in `text`), `section` (the whole section; `text` is only its heading), or `document` (the whole document; `text` is only its file name).
 2. Write **3–5 guesses** with the Write tool to `guesses_path`, as exactly `{"guesses": ["...", "..."]}`. Decide quickly: use what you noted in Step 1 and the guidance below, and don't deliberate over wording or order.
 3. Go back to step 1 at once. Don't stop to comment, summarize, or check on the user between rounds.
 
@@ -57,12 +57,12 @@ Repeat until the session is done:
   3. **Style-file rules** that the selected text breaks.
   4. **What the selection suggests.** An equation, number, or symbol suggests a correctness, notation, or units question. A claim suggests "is this right / what's the evidence / cite it". A single word suggests word choice, an undefined term, or jargon. A phrase suggests wordiness, vagueness, or a hedge. A whole sentence suggests that it's wrong, unsupported, unclear, too long, in the wrong place, or unneeded.
 - **For a whole paragraph, section, or document** (`scope` other than `selection`), guess about the unit as a whole, not about one sentence in it. For a paragraph: its point, its topic sentence, the order of its sentences, its length, or whether it belongs here. For a section: whether it answers the question it opens with, its structure, what's missing, or whether it should move, merge, or go. For the document: its main claim, its framing, its overall structure, its length, and its gaps. For a section or the document, the record carries only a heading or a file name, so draw on your Step 1 notes.
-- Make the guesses **different from each other**, each a distinct reading of why the user highlighted this.
+- Make the guesses **different from each other**, each a distinct reading of why the user highlighted this. The user can tick several guesses for one highlight, so write each as a self-contained point that still reads well next to the others.
 - **Never offer a "fine as it is" guess** ("Good. Keep this", "No change needed", and the like). The user highlighted the text because something about it caught their attention, so every guess should name a specific change or question. When the text has no obvious problem, look harder: correctness, missing justification, word choice, emphasis, placement, or whether it's needed at all.
 
 ## Step 3: Digest
 
-Read `<session-dir>/comments.json`. Each item has `scope`, `text`, `paragraph`, `section`, `comment`, `source`, and the `guesses` you offered.
+Read `<session-dir>/comments.json`. Each item has `scope`, `text`, `paragraph`, `section`, `comment`, `source`, `parts`, and the `guesses` you offered. `comment` joins the rows the user ticked, one per line, and `parts` lists them separately, each with its own `text`, `source`, and `guess_index`. Comments saved before multi-select have no `parts`; treat their `comment` as a single part. Sort each part on its own below, since the parts of one comment can be of different kinds.
 
 Sort every comment into one of three kinds:
 - **(a) Technical, this document**: about the content of this document (a wrong claim or equation, a gap in an argument, a missing experiment or citation, a method choice, a bug in included code, "this contradicts Table 2").
@@ -79,7 +79,7 @@ Show the user one compact summary:
 - **Technical fixes** to this document. For each, say what you'll change. Flag the ones that need work beyond editing, such as re-deriving a result, checking a source, rerunning code, or adding an experiment, and the ones where you're unsure what the right fix is.
 - **Writing fixes** to this document.
 - **Style-file changes**: new, reinforced, or changed rules.
-- Your guess hit rate (how many comments were a picked guess, an edited guess, or own words). It's useful feedback for you, and the user may find it interesting.
+- Your guess hit rate (counting parts: how many were picked guesses, edited guesses, or own words). It's useful feedback for you, and the user may find it interesting.
 
 ## Step 4: Apply
 
