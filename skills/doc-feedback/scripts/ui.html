@@ -70,7 +70,11 @@
   #doc img.c-active, #doc img.c-scoped.c-active { outline: 3px solid var(--accent); outline-offset: 3px; }
   #doc ::selection { background: var(--select); }
   #doc .math:not(.typeset) { font-family: ui-monospace, Consolas, monospace; font-size: .88em; white-space: pre-wrap; }
-  #doc .math.display { display: block; margin: .8em 0; overflow-x: auto; text-align: center; }
+  /* Wide formulas scroll sideways. KaTeX glyphs poke a few pixels past their box,
+     which overflow-x: auto would turn into a vertical scrollbar; the padding gives
+     them room, so hiding vertical overflow clips nothing. */
+  #doc .math.display { display: block; margin: .4em 0; padding: .4em 0; overflow-x: auto; overflow-y: hidden;
+                       text-align: center; }
   #doc .math.display:not(.typeset) { text-align: left; }
   #doc .math .katex-display { margin: 0; }
   /* Comments on a whole paragraph or section: a bar in the left margin, and a tint while open. */
