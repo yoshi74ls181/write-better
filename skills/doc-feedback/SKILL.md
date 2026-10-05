@@ -23,17 +23,24 @@ You run a highlight-and-comment session on a document, rendered from markdown. T
    ```
    python "<skill-dir>/scripts/feedback_server.py" serve --document "<document>" --session "<session-dir>"
    ```
-6. Get the address and give it to the user. Run, in the **foreground**:
+6. Get the address. Run, in the **foreground**:
    ```
    python "<skill-dir>/scripts/feedback_server.py" url --session "<session-dir>"
    ```
-   It waits for the server, then prints `url`, `port`, and a ready-made message for the user, which includes the steps for forwarding the port over VS Code Remote-SSH. **Send that message at once, as visible text, before any other tool call.** Your reasoning and tool output may not be shown to the user, so without this message they have no way to find the window. Send it as plain text, not in a code block or quote, and keep the URL alone on its line with a blank line above and below it, so it's easy to spot and Ctrl+clickable in the terminal.
+   It waits for the server, then prints `url`, `port`, and a ready-made message for the user, which includes the steps for forwarding the port over VS Code Remote-SSH.
+7. Give the user the URL and wait for their first highlight:
+   1. Start the first wait **in the background** (Bash with `run_in_background: true`):
+      ```
+      python "<skill-dir>/scripts/feedback_server.py" next --session "<session-dir>" --timeout 86400
+      ```
+   2. **End your turn, with the message from `url` as your whole reply.** Send it as plain text, not in a code block or quote, and keep the URL alone on its line with a blank line above and below it, so it's easy to spot and Ctrl+clickable in the terminal. Don't write the message only in your reasoning: the user sees at most a summary of your reasoning, where the URL can't be clicked. The reply that ends a turn is always shown, which is why you end the turn here.
+   3. When the background `next` finishes, you are invoked again. Read its output and handle it as in Step 2 (for a highlight, write the guesses), then run the loop in the foreground from there. If the user writes to you before that, answer them and leave the background `next` running.
 
    **Don't open a browser yourself** (no `$BROWSER`, `xdg-open`, `start`, or `code`): the user may be working through VS Code Remote-SSH, often inside tmux, and a browser opened from here would land on the wrong screen. If the user says they're at this machine and asks you to open it, you may.
 
 ## Step 2: Guess loop
 
-The user is waiting from the moment they highlight until the guesses appear, so the loop is built for speed. Each round is **exactly two tool calls**, `next` and then `Write`, with no text output, no file reads, and no other tools between them. (The URL message from Step 1 comes before the loop; send it first.)
+The user is waiting from the moment they highlight until the guesses appear, so the loop is built for speed. Each round is **exactly two tool calls**, `next` and then `Write`, with no text output, no file reads, and no other tools between them. Only the first wait, in Step 1, runs in the background.
 
 Repeat until the session is done:
 
@@ -85,7 +92,7 @@ Show the user one compact summary:
 
 1. **Edits to the document.** Ask whether to apply the fixes (default: yes, all of (a) and (b), plus the (c) violations found in this document). For technical fixes, do the work before you write: re-derive, check the source, or run the code, and don't paper over a problem you couldn't resolve. Mark it in the text or tell the user instead. Revise carefully: if the `careful-writer` skill is available, follow its "Revising existing text" discipline. In any case, re-read the paragraph after each changed sentence and the whole document at the end. Don't touch text the user didn't comment on unless a style rule clearly applies or a technical fix requires it (for example, a corrected number that appears in two places).
 2. **Style file.** Only if there are (c) changes. Show the proposed change as a diff, or as the full new file if it's being created. If the file doesn't exist yet, start from `<skill-dir>/../careful-writer/references/default-style.md` if the user wants the baseline rules, or else from just the header sections. Write it **only after the user confirms**. Keep the file tight: merge, don't append duplicates.
-3. Offer another round, where the user reviews the revised document the same way. If they accept, restart the server against the same session dir (the old comments stay visible in the sidebar; the port usually stays the same, so the user can just reload the page), re-read the revised document as in Step 1, and repeat Step 2.
+3. Offer another round, where the user reviews the revised document the same way. If they accept, restart the server against the same session dir (the old comments stay visible in the sidebar; the port usually stays the same, so the user can just reload the page), re-read the revised document as in Step 1, give the user the URL and wait for the first highlight as in Step 1 (steps 6 and 7), and repeat Step 2.
 
 ## Step 5: Clean up
 

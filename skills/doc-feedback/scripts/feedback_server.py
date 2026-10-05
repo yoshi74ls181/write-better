@@ -424,7 +424,7 @@ def cmd_url(args):
     port = info["port"]
     url = "http://localhost:%d/" % port
     print("url: %s\nport: %d\n" % (url, port))
-    print("Send the user this message now, as visible text, before any other tool call:\n")
+    print("Start the first `next` in the background, then end your turn with this message as your whole reply:\n")
     print(URL_MESSAGE.format(url=url, port=port))
 
 
