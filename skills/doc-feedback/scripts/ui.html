@@ -64,7 +64,15 @@
   #doc li.sub { margin-left: 1.6em; }
   #doc img, #doc video { display: block; max-width: 100%; height: auto; margin: .6em auto; }
   /* A figure with a comment gets an outline instead of the margin bar. */
-  #doc img { cursor: pointer; }
+  /* An animated figure plays in a canvas laid over its image, so a click can pause it on
+     the current frame and resume from there. The canvas takes no clicks; they reach the image. */
+  #doc .anim { display: block; position: relative; width: fit-content; max-width: 100%; margin: .6em auto; }
+  #doc .anim > img { margin: 0; cursor: pointer; }
+  #doc .anim > canvas { position: absolute; inset: 0; width: 100%; height: 100%; background: var(--paper);
+                        pointer-events: none; }
+  #doc .anim.paused::after { content: "⏸️"; position: absolute; inset: 0; display: flex; align-items: center;
+                             justify-content: center; font-size: var(--pause-size, 96px); pointer-events: none;
+                             text-shadow: 0 0 12px var(--shadow); }
   #doc img.c-scoped { outline: 3px solid var(--mark-saved); outline-offset: 3px; }
   #doc img.c-scoped.c-saved { outline-color: var(--mark-edge); }
   #doc img.c-active, #doc img.c-scoped.c-active { outline: 3px solid var(--accent); outline-offset: 3px; }
@@ -162,7 +170,7 @@
 <body>
 <header>
   <h1 id="title">Feedback</h1>
-  <span class="hint" title="Select words or sentences to comment on them, use ¶ and § in the margin for a whole paragraph or section, or click a figure.">Select words or sentences to comment on them, use ¶ and § in the margin for a whole paragraph or section, or click a figure.</span>
+  <span class="hint" title="Select words or sentences to comment on them, use ¶, §, or Fig in the margin for a whole paragraph, section, or figure. Click an animated figure to pause it.">Select words or sentences to comment on them, use ¶, §, or Fig in the margin for a whole paragraph, section, or figure. Click an animated figure to pause it.</span>
   <span class="spacer"></span>
   <span id="agent"><span class="dot"></span><span id="agent-text">connecting…</span></span>
   <button id="doc-comment">Comment on the whole document</button>
@@ -428,8 +436,8 @@ scopeBtn.addEventListener("click", () => {
 });
 
 docEl.addEventListener("click", (e) => {
-  if (e.target.tagName === "IMG" && window.getSelection().isCollapsed && !finished)
-    return commentOnWhole("figure", blockOf(e.target), e.target);
+  const p = e.target.tagName === "IMG" && players.get(e.target);
+  if (p && window.getSelection().isCollapsed) return togglePlayer(p);
   const m = e.target.closest("mark.hl");
   if (m && window.getSelection().isCollapsed) openPop(m.dataset.id);
 });
@@ -689,6 +697,65 @@ function loadKatex() {
   document.head.appendChild(s);
 }
 
+// ---------- animated figures ----------
+// A browser can't pause an animated image, so each one (GIF, or animated WebP or PNG) plays
+// frame by frame in a canvas over it, and clicking the figure pauses or resumes that playback.
+// Browsers without ImageDecoder leave the image playing on its own, and a click does nothing.
+const players = new WeakMap();  // img -> {dec, count, reps, i, loops, paused, ended, gen, timer, due, left, wrap, canvas}
+async function animate(img) {
+  if (!("ImageDecoder" in window)) return;
+  try {
+    const blob = await fetch(img.src).then((r) => r.ok ? r.blob() : Promise.reject());
+    if (!(await ImageDecoder.isTypeSupported(blob.type))) return;
+    const dec = new ImageDecoder({ data: blob.stream(), type: blob.type });
+    await dec.completed;
+    const track = dec.tracks.selectedTrack;
+    if (!track || !track.animated || track.frameCount < 2) return dec.close();
+    const p = { dec, count: track.frameCount, reps: track.repetitionCount, i: 0, loops: 0,
+                paused: false, ended: false, gen: 0, timer: 0, due: 0, left: 0, wrap: null, canvas: null };
+    players.set(img, p);
+    stepPlayer(p, img);
+  } catch (_) {}  // leave the image playing on its own
+}
+function stepPlayer(p, img) {
+  const gen = p.gen;
+  p.dec.decode({ frameIndex: p.i }).then(({ image }) => {
+    if (gen !== p.gen) return image.close();  // paused while decoding: this frame shows on resume
+    if (!p.wrap) {  // cover the image only once there is a frame to show
+      p.wrap = document.createElement("span"); p.wrap.className = "anim";
+      img.parentNode.insertBefore(p.wrap, img); p.wrap.appendChild(img);
+      p.canvas = document.createElement("canvas"); p.wrap.appendChild(p.canvas);
+    }
+    const c = p.canvas, ctx = c.getContext("2d");
+    if (c.width !== image.displayWidth || c.height !== image.displayHeight) {
+      c.width = image.displayWidth; c.height = image.displayHeight;
+    }
+    ctx.clearRect(0, 0, c.width, c.height); ctx.drawImage(image, 0, 0);
+    // Durations are in microseconds; like browsers, play frames of 10 ms or less at 100 ms.
+    const ms = image.duration > 10000 ? image.duration / 1000 : 100;
+    image.close();
+    p.i = (p.i + 1) % p.count;
+    if (p.i === 0 && ++p.loops > p.reps) { p.ended = true; return; }  // stays on its last frame
+    p.due = performance.now() + ms;
+    p.timer = setTimeout(() => stepPlayer(p, img), ms);
+  }, () => {});
+}
+function togglePlayer(p) {
+  if (!p.wrap) return;
+  const img = p.wrap.querySelector("img");
+  if (p.ended) { p.ended = false; p.loops = 0; return stepPlayer(p, img); }  // play its loops again
+  p.paused = !p.paused;
+  if (p.paused) {
+    p.gen++; clearTimeout(p.timer);
+    p.left = Math.max(0, p.due - performance.now());
+    const r = img.getBoundingClientRect();
+    p.wrap.style.setProperty("--pause-size", Math.round(Math.min(96, 0.4 * Math.min(r.width, r.height))) + "px");
+  } else {
+    p.timer = setTimeout(() => stepPlayer(p, img), p.left);  // the rest of the frame it paused on
+  }
+  p.wrap.classList.toggle("paused", p.paused);
+}
+
 // A paragraph or section comment keeps its block if the text there still matches,
 // or else moves to the block (a heading, for a section) whose text does.
 function reanchorWhole(h) {
@@ -713,6 +780,7 @@ function reanchorWhole(h) {
   document.title = "Feedback · " + doc.name; $("title").textContent = doc.name;
   docEl.innerHTML = doc.html;
   loadKatex();
+  docEl.querySelectorAll("img").forEach(animate);
   const st = await fetch("/state").then((r) => r.json());
   for (const c of st.comments || []) {
     const h = { id: c.id, scope: c.scope || "selection", text: c.text, figure: c.figure || "", paragraph: c.paragraph, section: c.section, block: c.block ?? 1e9,
