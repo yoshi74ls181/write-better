@@ -28,7 +28,7 @@ You run a highlight-and-comment session on a document, rendered from markdown. T
    ```
    python "<skill-dir>/scripts/feedback_server.py" url --session "<session-dir>"
    ```
-   It waits for the server, then prints `url`, `port`, and a ready-made message for the user, which includes the steps for forwarding the port over VS Code Remote-SSH.
+   It waits for the server, then prints `url`, `port`, `tailscale`, and a ready-made message for the user, which includes the steps for forwarding the port over VS Code Remote-SSH. If Tailscale is installed and signed in on this machine, it also shares the GUI on the user's tailnet so they can open it on a phone, and the message gives that address. Add `--no-tailscale` if the user doesn't want that.
 7. Give the user the URL and wait for their first highlight:
    1. Start the first wait **in the background** (Bash with `run_in_background: true`):
       ```
@@ -115,6 +115,12 @@ Keep `comments.json` and `resolved.json` (they're the user's record) unless the 
 - Starting `serve` for a session stops the server already running for it, so the new one takes its port and a reloaded tab shows the new page.
 - The server uses port 8765, or the next free port if that's taken, so a port VS Code already forwarded keeps working across sessions. If the port changed, give the new URL and use the new port in the forwarding steps.
 - Over VS Code Remote-SSH, VS Code usually forwards the port by itself once the server starts, lists it in the Ports tab, and opens the link in the user's local browser. When it doesn't, the user forwards the port by hand with the steps in the URL message. If port 8765 is already busy on the user's own computer, VS Code forwards it to a different local port; the page is then at the address in the Forwarded Address column, not at the URL you gave.
+- **From a phone or tablet.** `url` runs `tailscale serve --bg --https=<port> http://127.0.0.1:<port>`, which serves the GUI at `https://<machine>.<tailnet>.ts.net:<port>/` to the user's own devices only; the server itself stays on `127.0.0.1`. The server takes that address down when it stops. The `tailscale` line of `url`'s output says what happened:
+  - An `https://…ts.net` address: it's in the message.
+  - A `login.tailscale.com` link: HTTPS isn't enabled for the tailnet yet. The message asks the user to approve it; once they have, run `url` again and give them the new message.
+  - `none (…)`: Tailscale isn't installed, running, or signed in. If the user asks how to set it up: install Tailscale on this machine and on the phone, sign in to the same account on both, turn it on, then ask you to run `url` again.
+
+  Don't suggest binding the server to `0.0.0.0` instead: the server has no login, so anyone on the network could read the document.
 - The header shows "agent listening" while `next` is waiting. If the loop stalls (for example, you were interrupted), just run `next` again. Queued highlights are kept.
 - Images the document embeds by a relative path (PNG, JPEG, GIF, SVG, and WebP) are served from the document's folder and its subfolders. Images elsewhere don't show in the GUI.
 - LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, `\begin{align}` and similar) is typeset in the GUI with KaTeX, loaded from a CDN. Offline, formulas show as TeX source. Either way, a highlight that touches a formula covers the whole formula, and its text arrives as TeX source.

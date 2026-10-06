@@ -27,6 +27,8 @@ import json
 import mimetypes
 import os
 import re
+import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -401,6 +403,8 @@ def cmd_serve(args):
         server.server_close()
         info = _read_json(session.info_path)
         if info and info.get("pid") == os.getpid():  # a newer server may have taken over
+            if info.get("tailscale_port"):
+                _tailscale_unserve(info["tailscale_port"])
             session.info_path.unlink()
     print("Server stopped.", flush=True)
 
@@ -471,9 +475,72 @@ def cmd_url(args):
         time.sleep(0.3)
     port = info["port"]
     url = "http://localhost:%d/" % port
-    print("url: %s\nport: %d\n" % (url, port))
+    kind, value = (None, "skipped") if args.no_tailscale else _tailscale_serve(port)
+    if kind == "url":
+        info["tailscale_port"] = port  # so the server takes the address down when it stops
+        _write_json(session.info_path, info)
+    phone = {
+        "url": "On a phone or tablet on your tailnet: %s" % value,
+        "enable": "To open it on a phone or tablet, enable HTTPS for your tailnet at %s, then ask me to "
+                  "share it again." % value,
+    }.get(kind, "To open it on a phone or tablet, ask me how to set up Tailscale.")
+    print("url: %s\nport: %d\ntailscale: %s\n" % (url, port, value if kind else "none (%s)" % value))
     print("Start the first `next` in the background, then end your turn with this message as your whole reply:\n")
-    print(URL_MESSAGE.format(url=url, port=port))
+    print(URL_MESSAGE.format(url=url, port=port, phone=phone))
+
+
+def _tailscale():
+    exe = shutil.which("tailscale")
+    if not exe and os.name == "nt":
+        p = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Tailscale" / "tailscale.exe"
+        exe = str(p) if p.is_file() else None
+    return exe
+
+
+def _run(cmd, timeout):
+    """Run `cmd` and return (succeeded, output). A timeout counts as failure, with what it printed."""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return r.returncode == 0, (r.stdout or "") + (r.stderr or "")
+    except subprocess.TimeoutExpired as e:
+        dec = lambda b: b.decode(errors="replace") if isinstance(b, bytes) else (b or "")
+        return False, dec(e.stdout) + dec(e.stderr)
+    except OSError as e:
+        return False, str(e)
+
+
+def _tailscale_serve(port):
+    """Share the GUI on the user's tailnet, so their phone can open it. Tailscale serves
+    https://<machine>.<tailnet>.ts.net:<port>/ to their own devices only and passes requests
+    to the server on 127.0.0.1, so nothing is opened to the local network. The port is in the
+    address so that whatever else they serve at the tailnet root is left alone.
+    Returns ("url", address), ("enable", link) when HTTPS isn't enabled for the tailnet yet,
+    or (None, reason)."""
+    exe = _tailscale()
+    if not exe:
+        return None, "not installed"
+    ok, out = _run([exe, "status", "--json"], 10)
+    try:
+        status = json.loads(out) if ok else {}
+    except ValueError:
+        status = {}
+    host = (status.get("Self") or {}).get("DNSName", "").rstrip(".")
+    if status.get("BackendState") != "Running" or not host:
+        return None, "not running or not signed in"
+    # The first time, this prints a link to enable HTTPS and waits until it's approved.
+    ok, out = _run([exe, "serve", "--bg", "--https=%d" % port, "http://127.0.0.1:%d" % port], 20)
+    link = re.search(r"https://login\.tailscale\.com/\S+", out)
+    if link and not ok:
+        return "enable", link.group(0)
+    if not ok:
+        return None, (out.strip().splitlines() or ["`tailscale serve` failed"])[-1]
+    return "url", "https://%s:%d/" % (host, port)
+
+
+def _tailscale_unserve(port):
+    exe = _tailscale()
+    if exe:
+        _run([exe, "serve", "--https=%d" % port, "off"], 10)
 
 
 # The URL gets a line of its own so it's easy to spot and Ctrl+clickable in a terminal.
@@ -486,7 +553,9 @@ Select text to comment; I'll suggest comments; click **Finish & send** when done
 
 On VS Code Remote-SSH, if the link doesn't open: in the **Ports** tab next to **Terminal**, \
 click **Forward a Port** (or **Add Port**), enter {port}, and open the address in the \
-**Forwarded Address** column."""
+**Forwarded Address** column.
+
+{phone}"""
 
 
 # --------------------------------------------------------------------------
@@ -578,6 +647,7 @@ def main():
     u = sub.add_parser("url", help="print the GUI's URL once the server answers")
     u.add_argument("--session", required=True)
     u.add_argument("--timeout", type=float, default=15)
+    u.add_argument("--no-tailscale", action="store_true", help="don't share the GUI on the tailnet")
     nx = sub.add_parser("next", help="wait for the next highlight that needs guesses")
     nx.add_argument("--session", required=True)
     nx.add_argument("--timeout", type=float, default=540)
