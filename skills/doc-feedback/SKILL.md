@@ -110,7 +110,9 @@ Keep `comments.json` and `resolved.json` (they're the user's record) unless the 
 
 ## Notes
 - Besides selecting text, the user can comment on a whole paragraph (¶ in the left margin), a whole section (§ next to its heading), the whole document (a button in the header), or a figure (Fig in the margin). Clicking an animated figure pauses it, with ⏸️ over it, and clicking again resumes it. Each of these holds one comment, and older `comments.json` files without `scope` are read as selections.
-- The GUI lets the user type their own comment before the guesses arrive. If a highlight gets a comment first, `next` stops returning it, so no guess turn is wasted on it.
+- On a touch screen, such as a phone, selecting text brings up a **Comment on selection** button at the bottom of the screen, since a selection made with handles has no mouse release to end it.
+- The GUI lets the user type their own comment before the guesses arrive. If a highlight gets a comment first, or the user cancels it, `next` stops returning it, so no guess turn is wasted on it. If they cancel it while you're writing its guesses, write them anyway; the next `next` deletes them.
+- Starting `serve` for a session stops the server already running for it, so the new one takes its port and a reloaded tab shows the new page.
 - The server uses port 8765, or the next free port if that's taken, so a port VS Code already forwarded keeps working across sessions. If the port changed, give the new URL and use the new port in the forwarding steps.
 - Over VS Code Remote-SSH, VS Code usually forwards the port by itself once the server starts, lists it in the Ports tab, and opens the link in the user's local browser. When it doesn't, the user forwards the port by hand with the steps in the URL message. If port 8765 is already busy on the user's own computer, VS Code forwards it to a different local port; the page is then at the address in the Forwarded Address column, not at the URL you gave.
 - The header shows "agent listening" while `next` is waiting. If the loop stalls (for example, you were interrupted), just run `next` again. Queued highlights are kept.

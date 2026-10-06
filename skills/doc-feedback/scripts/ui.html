@@ -95,6 +95,13 @@
                color: var(--muted); }
   #scope-btn.show { display: block; }
   #scope-btn:hover { color: var(--accent); border-color: var(--accent); }
+  #sel-btn { position: fixed; z-index: 30; left: 50%; bottom: 16px; transform: translateX(-50%); display: none;
+             padding: 10px 18px; border-radius: 22px; box-shadow: 0 4px 14px var(--shadow);
+             user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+  #sel-btn.show { display: block; }
+  /* Bigger margin buttons for a finger. */
+  @media (pointer: coarse) { #scope-btn { padding: 0 10px; font-size: 15px; line-height: 32px; } }
+  @media (pointer: coarse) { #pop .foot .keys { visibility: hidden; } }  /* no keyboard shortcuts on a phone */
   mark.hl { background: var(--mark); color: inherit; border-radius: 2px; cursor: pointer; }
   mark.hl:has(> .math.display) { display: block; }
   mark.hl.saved { background: var(--mark-saved); border-bottom: 2px solid var(--mark-edge); }
@@ -200,6 +207,7 @@
 </main>
 
 <button id="scope-btn"></button>
+<button id="sel-btn" class="primary">Comment on selection</button>
 
 <div id="overlay"><div>
   <h2 style="margin-top:0">Feedback sent</h2>
@@ -342,14 +350,41 @@ function paintMarks() {
 }
 
 // ---------- making a highlight ----------
-docEl.addEventListener("mouseup", (e) => {
-  if (finished || pop.contains(e.target)) return;
+// With a mouse, letting go of the button after selecting makes the highlight. On a touch
+// screen the selection is made with handles and no mouseup comes, so while text is
+// selected a Comment button waits at the bottom of the screen.
+let lastPointer = "";  // "mouse", "touch", or "pen" from the last press; "" after a key
+document.addEventListener("pointerdown", (e) => { lastPointer = e.pointerType; }, true);
+document.addEventListener("keydown", () => { lastPointer = ""; }, true);
+function selectedRange() {
   const sel = window.getSelection();
-  if (!sel.rangeCount || sel.isCollapsed) return;
+  if (finished || !sel.rangeCount || sel.isCollapsed || !sel.toString().trim()) return null;
   const range = sel.getRangeAt(0);
-  if (!docEl.contains(range.commonAncestorContainer)) return;
-  const text = sel.toString().trim();
-  if (!text) return;
+  return docEl.contains(range.commonAncestorContainer) ? range : null;
+}
+docEl.addEventListener("mouseup", () => {
+  if (lastPointer && lastPointer !== "mouse") return;  // a tap; the Comment button handles touch
+  const range = selectedRange();
+  if (range) highlightRange(range);
+});
+const selBtn = $("sel-btn");
+let selRange = null, selArmed = null;  // the selection to comment on; the one a press on the button holds
+document.addEventListener("selectionchange", () => {
+  if (selArmed) return;  // tapping the button may clear the selection before its click arrives
+  const r = lastPointer === "mouse" ? null : selectedRange();
+  selRange = r && r.cloneRange();
+  selBtn.classList.toggle("show", !!r);
+});
+selBtn.addEventListener("pointerdown", () => { selArmed = selRange; });
+selBtn.addEventListener("pointercancel", () => { selArmed = null; });
+selBtn.addEventListener("mousedown", (e) => e.preventDefault());  // keep the selection
+selBtn.addEventListener("click", () => {
+  const r = selArmed || selRange;
+  selArmed = selRange = null; selBtn.classList.remove("show");
+  if (r && !finished) highlightRange(r);
+});
+function highlightRange(range) {
+  const sel = window.getSelection();
   const startBlock = blockOf(range.startContainer), endBlock = blockOf(range.endContainer);
   if (!startBlock) return;
   // Highlights that span blocks are clipped to the first block.
@@ -375,7 +410,7 @@ docEl.addEventListener("mouseup", (e) => {
   pollGuesses(id);
   openPop(id);
   renderList();
-});
+}
 
 // ---------- comments on a whole paragraph, section, document, or figure ----------
 // Each one has a single comment; asking again reopens it.
@@ -614,7 +649,7 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); }
 });
 document.addEventListener("mousedown", (e) => {
-  if (pop.classList.contains("open") && !pop.contains(e.target) && !e.target.closest("mark.hl, .item, #scope-btn, #doc-comment"))
+  if (pop.classList.contains("open") && !pop.contains(e.target) && !e.target.closest("mark.hl, .item, #scope-btn, #sel-btn, #doc-comment"))
     closePop(false);  // keep drafts; they stay in the sidebar
 });
 window.addEventListener("resize", () => { if (current) { growAll(); keepVisible(); } });

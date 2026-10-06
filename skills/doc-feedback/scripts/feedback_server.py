@@ -386,6 +386,7 @@ def cmd_serve(args):
         sys.exit("document not found: %s" % doc)
     session = Session(args.session)
     session.init()
+    _stop_previous(session)
     server = _bind(args.port, make_handler(session, doc))
     url = "http://127.0.0.1:%d/" % server.server_address[1]
     _write_json(session.info_path, {"url": url, "port": server.server_address[1],
@@ -398,9 +399,33 @@ def cmd_serve(args):
         pass
     finally:
         server.server_close()
-        if session.info_path.exists():
+        info = _read_json(session.info_path)
+        if info and info.get("pid") == os.getpid():  # a newer server may have taken over
             session.info_path.unlink()
     print("Server stopped.", flush=True)
+
+
+def _stop_previous(session):
+    """Shut down the server an earlier `serve` left running for this session. Otherwise it
+    keeps its port, the new server takes the next one, and a reloaded tab shows the old page."""
+    info = _read_json(session.info_path)
+    if not info:
+        return
+    try:
+        req = urllib.request.Request(info["url"] + "shutdown", data=b"{}", method="POST",
+                                     headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=2).read()
+    except OSError:
+        return  # already gone
+    # Wait for it to let go of the port and remove its server.json, so neither clobbers ours.
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        try:
+            urllib.request.urlopen(info["url"] + "state", timeout=1).read()
+        except OSError:
+            if not session.info_path.exists():
+                return
+        time.sleep(0.2)
 
 
 # --------------------------------------------------------------------------
@@ -472,6 +497,12 @@ def cmd_next(args):
     session = Session(args.session)
     if not session.pending.is_dir():
         sys.exit("no session at %s (start `serve` first)" % session.root)
+    # Guesses for a highlight the user cancelled while the agent was writing them have
+    # neither a pending record nor a saved comment. Nobody will read them.
+    saved = {c.get("id") for c in session.comments()}
+    for g in session.guesses.glob("*.json"):
+        if g.stem not in saved and not (session.pending / g.name).exists():
+            g.unlink(missing_ok=True)
     deadline = time.time() + args.timeout
     while True:
         session.heartbeat.write_text(str(time.time()), encoding="utf-8")
