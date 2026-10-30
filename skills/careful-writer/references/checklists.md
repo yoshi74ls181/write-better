@@ -7,7 +7,14 @@ User style rules always win over this list when the two conflict.
 ## Sentence checks (re-read the whole paragraph after every sentence)
 
 - **Follows on.** It connects to the sentence before it. The reader can tell why this sentence comes next: it elaborates, gives a cause, gives a consequence, contrasts, or gives an example.
-- **One job.** It makes one main point. If it carries two, split it, or make one clearly subordinate.
+- **One idea.** It makes one main point. Put a second idea in a sentence of its own, or cut it. Don't fold it in as a clause.
+- **Limits.** Any of these signs means the sentence carries too much. Split it, or cut a fact.
+  - It runs past about 25 words.
+  - More than a few words come before the subject.
+  - A phrase set off by commas sits between the subject and the verb, or trails after the main clause (", as the dashboard shows it").
+  - A colon introduces a run of phrases.
+  - A semicolon joins two clauses.
+- **Drop before compress.** If a fact fits only as an inserted qualifier, an appositive, or a parenthesis, cut it. Or move it to the place where it is the topic. A shorter text the reader follows beats a complete one they have to untangle.
 - **Defined terms.** Every technical term, acronym, symbol, and name is defined or obvious to this audience *at or before* its first use.
 - **Clear referents.** Every "this", "that", "it", "they", "these results", and "the method" points to exactly one thing the reader can identify. Prefer "this result" to a bare "this".
 - **Old to new.** It starts from something the reader already has, from the previous sentence or common knowledge, and ends on the new information.
@@ -40,6 +47,6 @@ User style rules always win over this list when the two conflict.
 
 ## Fresh-reader prompt (Step 3)
 
-> Read the file at `<path>`. You are a first-time reader: <audience from notes>. You know nothing beyond what is on the page. List every place where you (a) had to re-read, (b) met a term, acronym, or name you could not interpret, (c) could not tell what a pronoun or "this" referred to, (d) could not see why a sentence followed the previous one, (e) doubted a claim or could not tell its basis, or (f) lost the thread of the argument, or (g) could not tell what you were being asked to do, if anything. Quote the exact text for each and say in one line what confused you. Do not rewrite anything. Finish with one sentence on what you think the piece's main point is.
+> Read the file at `<path>`. You are a first-time reader: <audience from notes>. You know nothing beyond what is on the page. List every place where you (a) had to re-read, (b) met a term, acronym, or name you could not interpret, (c) could not tell what a pronoun or "this" referred to, (d) could not see why a sentence followed the previous one, (e) doubted a claim or could not tell its basis, (f) lost the thread of the argument, (g) could not tell what you were being asked to do, if anything, or (h) had to search a sentence for its subject and verb, or found it carrying more than one idea. Quote the exact text for each and say in one line what confused you. Do not rewrite anything. Finish with one sentence on what you think the piece's main point is.
 
 Compare that last sentence with the **Purpose** in the notes. If they differ, the piece does not yet say what you meant.

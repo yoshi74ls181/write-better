@@ -1,6 +1,6 @@
 ---
 name: careful-writer
-description: Write or revise prose the way a careful human writer does, one sentence at a time, re-reading and revising at the sentence, paragraph, section, and document level against the user's writing-style file. Use whenever you are about to write prose someone will actually read: reports and research write-ups, papers or paper sections, abstracts, proposals, memos, documentation and READMEs, emails, letters, statements, blog posts, or a substantial rewrite of existing text. Also use when the user asks for careful, polished, or well-written prose. Do not write such text in one shot.
+description: Write or revise prose the way a careful human writer does, one sentence at a time, re-reading and revising at the sentence, paragraph, section, and document level against the user's writing-style file. Use whenever you are about to write prose someone will actually read: reports and research write-ups, papers or paper sections, abstracts, proposals, memos, documentation and READMEs, emails, letters, statements, blog posts, or a substantial rewrite of existing text. Also use for a single sentence or paragraph added in passing, such as a README line or a message a program shows people, written during a code change. Also use when the user asks for careful, polished, or well-written prose. Do not write such text in one shot.
 ---
 
 # careful-writer
@@ -15,7 +15,8 @@ Below, **the piece** means whatever you are writing: a report, a paper section, 
 
 The discipline is the same for every piece; only the amount of scaffolding changes.
 
-- **Short** (a few paragraphs or less: an email, an abstract, a cover note, a single section). Keep the notes to a few lines on reader, purpose, and key points; they can live at the top of a scratch file instead of a separate notes file. Run the sentence loop and paragraph pass as written. The section pass becomes a re-read of the whole piece. The fresh-reader pass is optional unless the stakes are high (an application, a message to someone senior, anything that will be published).
+- **Tiny** (a sentence or a paragraph added while doing other work: a README line, a docstring a user reads, a message a program shows people). Skip the notes and the outline. Still run the sentence loop on every sentence. At the end, re-read the paragraph and the text around it once. Text written in passing is where crowded sentences slip in, so don't skip this tier.
+- **Short** (a few paragraphs or less: an email, an abstract, a cover note, a single section). Keep the notes to a few lines on reader, purpose, and key points; they can live at the top of a scratch file instead of a separate notes file. Run the sentence loop and paragraph pass as written. The section pass becomes a re-read of the whole piece. The fresh-reader pass is optional unless the stakes are high (an application, a message to someone senior, anything that will be published, such as a README or a message a program sends).
 - **Long** (a report, a paper, documentation with several sections). Follow every step below in full.
 
 When unsure, treat the piece as long.
@@ -29,7 +30,7 @@ Find the style file in this order:
 
 Read the whole file. If none exists, read `references/default-style.md` in this skill's directory and tell the user you're using the baseline style, which they can refine with the `doc-feedback` skill.
 
-Also note any **conventions of the form** that apply: a venue's format, a template the user gave, the existing voice of a document you are adding to, or the norms of the genre (an email gets a clear ask; an abstract states the result; reference docs favor scannable structure). The user's style rules win when they conflict with genre habits.
+Also note any **conventions of the form** that apply: a venue's format, a template the user gave, the existing voice of a document you are adding to, or the norms of the genre (an email gets a clear ask; an abstract states the result; reference docs favor scannable structure). The user's style rules win when they conflict with genre habits. Match an existing document's terms and format, but not its sentence density. If the sentences around your addition are crowded, don't copy them.
 
 Before drafting, list for yourself the 5–10 rules that matter most for this piece. Keep them in mind; you'll check every sentence against them.
 
@@ -45,8 +46,8 @@ Prose written straight from memory goes wrong, so write the material down first.
 2. Write `<stem>.notes.md` next to the draft (or a short header in the scratch file for short pieces). It holds:
    - **Reader**: who will read this, what they already know, and what they need to do afterward.
    - **Purpose**: one sentence on what the reader should understand, decide, or do after reading.
-   - **Material**: the facts, numbers, sources, arguments, and caveats you will draw on, in rough form.
-   - **Outline**: the sections in order (or just the paragraphs, for a short piece). For each, give its purpose in one line and its key points as bullets. Each bullet roughly becomes a paragraph.
+   - **Material**: the facts, numbers, sources, arguments, and caveats you will draw on, in rough form. Mark each one *must* (the reader needs it to understand or to act) or *nice*.
+   - **Outline**: the sections in order (or just the paragraphs, for a short piece). For each, give its purpose in one line and its key points as bullets. Each bullet roughly becomes a paragraph. Give each paragraph its *must* facts. A *nice* fact goes in only where it fits as a sentence of its own. Otherwise leave it out: leaving facts out is part of the job.
 3. Read the outline as the reader would. Does each part earn its place, and does the order build understanding? Fix the outline before writing prose.
 
 ## Step 2: Draft on disk, one sentence at a time
@@ -87,4 +88,4 @@ Tell the user where the piece is, in one or two sentences on what it covers, and
 
 ## Revising existing text
 
-When asked to revise, edit, or tighten text (yours or the user's, including after `doc-feedback`), apply the same discipline. Read the whole piece first and note its reader and purpose. Then, after each changed sentence, re-read its paragraph; after each changed paragraph, re-read its section; after finishing, re-read the whole piece. Keep the author's voice and leave alone what the user didn't ask you to change, unless a style rule clearly applies.
+When asked to revise, edit, or tighten text (yours or the user's, including after `doc-feedback`), apply the same discipline. Read the whole piece first and note its reader and purpose. Then, after each changed sentence, re-read its paragraph; after each changed paragraph, re-read its section; after finishing, re-read the whole piece. Keep the author's voice and leave alone what the user didn't ask you to change, unless a style rule clearly applies. When a sentence is crowded, cut its less-important facts rather than compressing them into clauses.

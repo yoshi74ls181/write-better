@@ -44,3 +44,9 @@ This baseline applies only when the user has no style file yet. The `doc-feedbac
 - **Why:** A bare "this" often points to something the reader can't identify.
 - **Bad → Good:** "This causes problems." → "This retry loop causes problems."
 - **Source:** baseline
+
+### R7. One idea per sentence
+- **Rule:** Give each sentence one idea, with its subject and verb early. When there is more to say than fits plainly, leave out the less-important facts. Don't pack them in as inserted clauses, qualifiers and colon lists.
+- **Why:** A sentence that stacks clauses is hard to parse, even when every fact in it is right.
+- **Bad → Good:** "So that the job never fills the disk, no run starts while the volume's usage, as df reports it, is at or above a limit you set, and a run that reaches it is stopped." → "A limit keeps the job from filling the disk. No run starts while the disk is fuller than the limit. A running job stops when it reaches the limit."
+- **Source:** baseline
