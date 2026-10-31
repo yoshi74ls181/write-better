@@ -1,6 +1,6 @@
 ---
 name: doc-feedback
-description: Collect the user's feedback on a document (a report, paper, proposal, doc, email draft, or any other text) through a local browser GUI. The user highlights words or sentences, or picks a whole paragraph, section, or the entire document, and the agent guesses the likely comment live (offered as editable options, of which the user can tick one or several); afterwards the comments become fixes to the document. Feedback can be technical (correctness, derivations, methods, missing results, code) or about the writing. Only writing preferences that carry over to future documents go into the user's shared writing-style file (~/.claude/writing-style.md), which the careful-writer skill reads. Use when the user wants to review, mark up, comment on, or give feedback on a document, or wants to teach or update their writing style.
+description: Collect the user's feedback on a document (a report, paper, proposal, doc, email draft, or any other text) through a local browser GUI. The user highlights words or sentences, or picks a whole paragraph, section, or the entire document, and the agent guesses the likely comment live (offered as editable options, of which the user can tick one or several); afterwards the comments become fixes to the document. Feedback can be technical (correctness, derivations, methods, missing results, code) or about the writing. Only writing preferences that carry over to future documents go into the user's shared writing rules (a GitHub rules repository, or the style file ~/.claude/writing-style.md), which the careful-writer skill reads. Use when the user wants to review, mark up, comment on, or give feedback on a document, or wants to teach or update their writing style.
 ---
 
 # doc-feedback
@@ -12,7 +12,7 @@ You run a highlight-and-comment session on a document, rendered from markdown. T
 ## Step 1: Set up
 
 1. **Document**: the path the user names, or else the document you just wrote. If it isn't markdown (LaTeX, plain text, `.docx`, and so on), convert it to a `.md` copy first and say so; apply the fixes to the original afterward. If the text isn't in a file at all (an email draft, a pasted passage), save it to a `.md` file first.
-2. **Style file**: an explicit path from the user, then `$WRITING_STYLE_FILE`, then `~/.claude/writing-style.md`. Read it now if it exists, along with `references/style-file-format.md`.
+2. **Style file**: an explicit path from the user, then a rules repository, then `$WRITING_STYLE_FILE`, then `~/.claude/writing-style.md`. For a rules repository, run `python "<skill-dir>/../careful-writer/scripts/rules.py" fetch`, which downloads the rule files from the latest commit on `main` of the repository named by `WRITING_RULES_REPO`. If it prints `"source": "none"`, go on to `$WRITING_STYLE_FILE`. Otherwise read the local copy of `index.md` and every rule file it lists, and keep the printed JSON, since Step 4 needs each file's `blob`. Read the style file (or the rule files) now if it exists, along with `references/style-file-format.md`.
 3. **Read the document in full** now, even if you wrote it, and note for yourself its likely weak spots of both kinds:
    - **Technical**: claims that may be wrong or unsupported, gaps in a derivation or argument, inconsistent numbers, units, or notation, questionable methods or assumptions, missing results, comparisons, or citations, and code that may not do what the text says.
    - **Writing**: style-rule violations, undefined terms, hedges, unclear or clumsy sentences, poor ordering.
@@ -82,7 +82,7 @@ One comment can be both (b) and (c): fix it here and record the preference.
 
 **Only (c) goes into the shared style file.** Technical feedback about this document stays with this document, even when it's phrased generally ("always check the boundary case" about this proof is (a), not a rule). A general preference about how to *present* technical material, such as "state assumptions before the theorem", can be (c). When you can't tell whether a writing comment generalizes, treat it as (b) and ask in the summary.
 
-For (c), group comments that express the same preference and draft one rule per group in the style-file format: **Rule**, **Why**, **Bad → Good** (from the user's actual highlight), and **Source**. For each rule, decide whether it's **new**, **reinforces** an existing rule (add a source and maybe an example), or **conflicts** with one (rewrite the old rule; don't keep both).
+For (c), group comments that express the same preference and draft one rule per group in the style-file format: a numbered heading, the rule itself, and a **Bad → Good** example from the user's actual highlight. For each rule, decide whether it's **new**, **reinforces** an existing rule (add an example only if it shows a new case), or **conflicts** with one (rewrite the old rule; don't keep both). With a rules repository, also decide which file each rule belongs in, from the conditions in `index.md`.
 
 Show the user one compact summary:
 - **Technical fixes** to this document. For each, say what you'll change. Flag the ones that need work beyond editing, such as re-deriving a result, checking a source, rerunning code, or adding an experiment, and the ones where you're unsure what the right fix is.
@@ -94,6 +94,17 @@ Show the user one compact summary:
 
 1. **Edits to the document.** Ask whether to apply the fixes (default: yes, all of (a) and (b), plus the (c) violations found in this document). For technical fixes, do the work before you write: re-derive, check the source, or run the code, and don't paper over a problem you couldn't resolve. Mark it in the text or tell the user instead. Revise carefully: if the `careful-writer` skill is available, follow its "Revising existing text" discipline. In any case, re-read the paragraph after each changed sentence and the whole document at the end. Don't touch text the user didn't comment on unless a style rule clearly applies or a technical fix requires it (for example, a corrected number that appears in two places).
 2. **Style file.** Only if there are (c) changes. Show the proposed change as a diff, or as the full new file if it's being created. If the file doesn't exist yet, start from `<skill-dir>/../careful-writer/references/default-style.md` if the user wants the baseline rules, or else from just the header sections. Write it **only after the user confirms**. Keep the file tight: merge, don't append duplicates.
+
+   With a rules repository, the change goes straight to its `main` branch, so the diff you show is exactly what will be pushed, with the name of each file it touches. For each file:
+   1. Copy its local copy from the fetch into `<session-dir>/rules/`, make the change there, and show `git diff --no-index` of the two.
+   2. After the user confirms, push it:
+      ```
+      python "<skill-dir>/../careful-writer/scripts/rules.py" push --path "<file>" --file "<session-dir>/rules/<file>" --base "<blob>" --message "<message>"
+      ```
+      `<blob>` is the file's `blob` from the fetch. Make `<message>` say what changed and name the document whose feedback earned it, such as `Add R32, units beside every number (feedback on report.md, 2026-11-02)`.
+   3. If it prints `"conflict": true`, the file changed on `main` since you fetched it. Fetch again, make the same change to the new version, show the new diff, and push only after the user confirms again. Never push over a newer version.
+
+   Fetch once more at the end, so the cached copy matches `main`, and tell the user the commit each push made.
 3. **Resolve what's done.** Run this with the `id` of every comment whose fix you made in full, and of every comment the user chose to drop:
    ```
    python "<skill-dir>/scripts/feedback_server.py" resolve --session "<session-dir>" <id> [<id> ...]

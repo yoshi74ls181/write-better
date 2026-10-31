@@ -1,6 +1,6 @@
 # write-better
 
-A Claude Code plugin with two skills that share one writing-style file. Each skill works on its own; together they form a loop where every round of feedback makes the next piece better.
+A Claude Code plugin with two skills that share one set of writing rules. Each skill works on its own; together they form a loop where every round of feedback makes the next piece better.
 
 | Skill | What it does |
 |---|---|
@@ -20,9 +20,17 @@ The first command registers this repo as a plugin marketplace; the second instal
 
 Requirements: Python 3.8+ (standard library only) and any modern browser. Math typesetting needs internet access for KaTeX.
 
-## The style file
+## Where your rules live
 
-Both skills use `~/.claude/writing-style.md` by default. To use a different file, set `WRITING_STYLE_FILE` or name a path in your request. The format is described in `skills/doc-feedback/references/style-file-format.md`. Until the file exists, `careful-writer` falls back to `skills/careful-writer/references/default-style.md`.
+Both skills read your rules from the first of these that exists:
+
+1. A path you name in your request.
+2. **A rules repository on GitHub.** Set `WRITING_RULES_REPO` to its `owner/name`, for example in the `env` block of `~/.claude/settings.json`. Each time a skill runs, it fetches the rule files from the latest commit on the repository's `main` branch, reads the ones its `index.md` says apply to the piece, and tells you which commit it used. Offline, it uses the last copy it fetched and says so. `doc-feedback` pushes new rules straight to `main` after you confirm the diff, and the push fails if the file changed since it was read. Reading works without signing in for a public repository; pushing needs the GitHub CLI (`gh`), signed in. [yoshi74ls181/writing-rules](https://github.com/yoshi74ls181/writing-rules) is an example.
+3. **A single style file**, `WRITING_STYLE_FILE` or else `~/.claude/writing-style.md`.
+
+The format is described in `skills/doc-feedback/references/style-file-format.md`. With none of these, `careful-writer` falls back to `skills/careful-writer/references/default-style.md`.
+
+Only the rules are fetched live. The skills' own instructions come from the installed plugin version.
 
 ## Typical use
 

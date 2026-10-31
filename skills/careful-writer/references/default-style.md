@@ -1,6 +1,6 @@
 # Writing style (baseline)
 
-This baseline applies only when the user has no style file yet. The `doc-feedback` skill creates the real one at `~/.claude/writing-style.md` and can start from a copy of this file.
+This baseline applies only when the user has neither a rules repository nor a style file. The `doc-feedback` skill creates the real one at `~/.claude/writing-style.md` and can start from a copy of this file.
 
 ## Reader & voice
 - Default reader: a capable colleague outside this project who has not seen the research or the conversation.
@@ -10,49 +10,49 @@ This baseline applies only when the user has no style file yet. The `doc-feedbac
 ## Rules
 
 ### R1. Lead with the answer
-- **Rule:** The opening states the main finding, recommendation, or request. Background comes after.
-- **Why:** Readers often stop early, so the most important thing must come first.
-- **Bad → Good:** "This report examines several factors…" → "Switching to X cuts build time by 40%; the rest of this note explains why."
-- **Source:** baseline
+
+The opening states the main finding, recommendation, or request. Background comes after.
+
+- Bad → Good: "This report examines several factors…" → "Switching to X cuts build time by 40%; the rest of this note explains why."
 
 ### R2. Define before use
-- **Rule:** Define every acronym, symbol, and specialist term at its first use, or don't use it.
-- **Why:** The reader has not seen the research notes.
-- **Bad → Good:** "The ELBO dropped." → "The evidence lower bound (ELBO), the quantity the model maximizes, dropped."
-- **Source:** baseline
+
+Define every acronym, symbol, and specialist term at its first use, or don't use it.
+
+- Bad → Good: "The ELBO dropped." → "The evidence lower bound (ELBO), the quantity the model maximizes, dropped."
 
 ### R3. Say how sure you are, once
-- **Rule:** State the confidence and the evidence for each claim plainly. Don't stack hedges ("may possibly suggest").
-- **Why:** Stacked hedges hide how strong the evidence actually is.
-- **Bad → Good:** "This might perhaps indicate a possible link." → "Two of three datasets show the link; the third is too small to tell."
-- **Source:** baseline
+
+State the confidence and the evidence for each claim plainly. Don't stack hedges ("may possibly suggest").
+
+- Bad → Good: "This might perhaps indicate a possible link." → "Two of three datasets show the link; the third is too small to tell."
 
 ### R4. Prefer the concrete
-- **Rule:** Use numbers, names, and examples instead of vague quantifiers ("significant", "various", "many").
-- **Why:** Vague words make the reader guess.
-- **Bad → Good:** "Performance improved significantly." → "Latency fell from 120 ms to 45 ms."
-- **Source:** baseline
+
+Use numbers, names, and examples instead of vague quantifiers ("significant", "various", "many").
+
+- Bad → Good: "Performance improved significantly." → "Latency fell from 120 ms to 45 ms."
 
 ### R5. No throat-clearing
-- **Rule:** Cut openers like "It is important to note that" and "It should be mentioned that".
-- **Why:** They delay the point and add nothing.
-- **Bad → Good:** "It is worth noting that the API is rate-limited." → "The API is rate-limited."
-- **Source:** baseline
+
+Cut openers like "It is important to note that" and "It should be mentioned that".
+
+- Bad → Good: "It is worth noting that the API is rate-limited." → "The API is rate-limited."
 
 ### R6. Name what "this" refers to
-- **Rule:** Follow "this", "that", and "these" with a noun when the referent could be unclear.
-- **Why:** A bare "this" often points to something the reader can't identify.
-- **Bad → Good:** "This causes problems." → "This retry loop causes problems."
-- **Source:** baseline
+
+Follow "this", "that", and "these" with a noun when the referent could be unclear.
+
+- Bad → Good: "This causes problems." → "This retry loop causes problems."
 
 ### R7. One idea per sentence
-- **Rule:** Give each sentence one idea, with its subject and verb early. When there is more to say than fits plainly, leave out the less-important facts. Don't pack them in as inserted clauses, qualifiers and colon lists.
-- **Why:** A sentence that stacks clauses is hard to parse, even when every fact in it is right.
-- **Bad → Good:** "So that the job never fills the disk, no run starts while the volume's usage, as df reports it, is at or above a limit you set, and a run that reaches it is stopped." → "A limit keeps the job from filling the disk. No run starts while the disk is fuller than the limit. A running job stops when it reaches the limit."
-- **Source:** baseline
+
+Give each sentence one idea, with its subject and verb early. When there is more to say than fits plainly, leave out the less-important facts. Don't pack them in as inserted clauses, qualifiers and colon lists.
+
+- Bad → Good: "So that the job never fills the disk, no run starts while the volume's usage, as df reports it, is at or above a limit you set, and a run that reaches it is stopped." → "A limit keeps the job from filling the disk. No run starts while the disk is fuller than the limit. A running job stops when it reaches the limit."
 
 ### R8. The reader does what the reader does
-- **Rule:** When the reader performs an action, make "you" the subject. Make a tool, a file or a setting the subject only of what it does by itself.
-- **Why:** A tool as the subject of the reader's action reads as if the tool acted on its own, and the reader has to work out that the action is theirs.
-- **Bad → Good:** "The wake browser changes both limits." → "You can change these limits in the wake browser."
-- **Source:** baseline
+
+When the reader performs an action, make "you" the subject. Make a tool, a file or a setting the subject only of what it does by itself.
+
+- Bad → Good: "The wake browser changes both limits." → "You can change these limits in the wake browser."

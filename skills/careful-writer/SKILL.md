@@ -23,12 +23,13 @@ When unsure, treat the piece as long.
 
 ## Step 0: Load the style file
 
-Find the style file in this order:
+Find the user's style rules in this order, and use the first source that exists:
 1. A path the user gave for this task.
-2. The `WRITING_STYLE_FILE` environment variable (`echo $WRITING_STYLE_FILE`).
-3. `~/.claude/writing-style.md`.
+2. A rules repository, fetched fresh from GitHub. Run `python "<skill-dir>/scripts/rules.py" fetch`, where `<skill-dir>` is this skill's base directory. It reads the repository named by the `WRITING_RULES_REPO` environment variable, downloads the rule files from the latest commit on its `main` branch, and prints them as JSON. `"source": "none"` means no repository is configured; go on to item 3. Otherwise read the local copy of `index.md`, then read in full every file whose "read when" condition holds for this piece. Tell the user the short commit (the first 7 characters of `commit`) the rules came from. If `source` is `cache`, also say that GitHub couldn't be reached and give the date of the cached copy. Fetch again for each new piece, so that rules added in the meantime apply.
+3. The `WRITING_STYLE_FILE` environment variable (`echo $WRITING_STYLE_FILE`).
+4. `~/.claude/writing-style.md`.
 
-Read the whole file. If none exists, read `references/default-style.md` in this skill's directory and tell the user you're using the baseline style, which they can refine with the `doc-feedback` skill.
+Read the whole file, or every file that applies. Below, **the style file** means whatever you loaded here. If none exists, read `references/default-style.md` in this skill's directory and tell the user you're using the baseline style, which they can refine with the `doc-feedback` skill.
 
 Also note any **conventions of the form** that apply: a venue's format, a template the user gave, the existing voice of a document you are adding to, or the norms of the genre (an email gets a clear ask; an abstract states the result; reference docs favor scannable structure). The user's style rules win when they conflict with genre habits. Match an existing document's terms and format, but not its sentence density. If the sentences around your addition are crowded, don't copy them.
 
