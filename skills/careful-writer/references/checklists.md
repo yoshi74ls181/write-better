@@ -14,6 +14,7 @@ User style rules always win over this list when the two conflict.
   - A phrase set off by commas sits between the subject and the verb, or trails after the main clause (", as the dashboard shows it").
   - A colon introduces a run of phrases.
   - A semicolon joins two clauses.
+- **Who acts.** When the reader is the one who does something, make "you" the subject: "You can change these limits in the wake browser", not "The wake browser changes both limits." A tool, a file or a setting is the subject only of what it does by itself: "The daemon checks the forum every minute."
 - **Drop before compress.** If a fact fits only as an inserted qualifier, an appositive, or a parenthesis, cut it. Or move it to the place where it is the topic. A shorter text the reader follows beats a complete one they have to untangle.
 - **Defined terms.** Every technical term, acronym, symbol, and name is defined or obvious to this audience *at or before* its first use.
 - **Clear referents.** Every "this", "that", "it", "they", "these results", and "the method" points to exactly one thing the reader can identify. Prefer "this result" to a bare "this".

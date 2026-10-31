@@ -50,3 +50,9 @@ This baseline applies only when the user has no style file yet. The `doc-feedbac
 - **Why:** A sentence that stacks clauses is hard to parse, even when every fact in it is right.
 - **Bad → Good:** "So that the job never fills the disk, no run starts while the volume's usage, as df reports it, is at or above a limit you set, and a run that reaches it is stopped." → "A limit keeps the job from filling the disk. No run starts while the disk is fuller than the limit. A running job stops when it reaches the limit."
 - **Source:** baseline
+
+### R8. The reader does what the reader does
+- **Rule:** When the reader performs an action, make "you" the subject. Make a tool, a file or a setting the subject only of what it does by itself.
+- **Why:** A tool as the subject of the reader's action reads as if the tool acted on its own, and the reader has to work out that the action is theirs.
+- **Bad → Good:** "The wake browser changes both limits." → "You can change these limits in the wake browser."
+- **Source:** baseline
