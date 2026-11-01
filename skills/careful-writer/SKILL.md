@@ -29,7 +29,7 @@ Find the user's style rules in this order, and use the first source that exists:
 3. The `WRITING_STYLE_FILE` environment variable (`echo $WRITING_STYLE_FILE`).
 4. `~/.claude/writing-style.md`.
 
-Read the whole file, or every file that applies. Below, **the style file** means whatever you loaded here. If none exists, read `references/default-style.md` in this skill's directory and tell the user you're using the baseline style, which they can refine with the `doc-feedback` skill.
+Read the whole file, or every file that applies. Below, **the style file** means whatever you loaded here. If none exists, write with the checks in `references/checklists.md` alone, and tell the user they have no style rules yet; the `doc-feedback` skill can start them from their feedback.
 
 Also note any **conventions of the form** that apply: a venue's format, a template the user gave, the existing voice of a document you are adding to, or the norms of the genre (an email gets a clear ask; an abstract states the result; reference docs favor scannable structure). The user's style rules win when they conflict with genre habits. Match an existing document's terms and format, but not its sentence density. If the sentences around your addition are crowded, don't copy them.
 

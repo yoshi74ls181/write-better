@@ -28,7 +28,7 @@ Both skills read your rules from the first of these that exists:
 2. **A rules repository on GitHub.** Set `WRITING_RULES_REPO` to its `owner/name`, for example in the `env` block of `~/.claude/settings.json`. Each time a skill runs, it fetches the rule files from the latest commit on the repository's `main` branch, reads the ones its `index.md` says apply to the piece, and tells you which commit it used. Offline, it uses the last copy it fetched and says so. `doc-feedback` pushes new rules straight to `main` after you confirm the diff, and the push fails if the file changed since it was read. Reading works without signing in for a public repository; pushing needs the GitHub CLI (`gh`), signed in. [yoshi74ls181/writing-rules](https://github.com/yoshi74ls181/writing-rules) is an example.
 3. **A single style file**, `WRITING_STYLE_FILE` or else `~/.claude/writing-style.md`.
 
-The format is described in `skills/doc-feedback/references/style-file-format.md`. With none of these, `careful-writer` falls back to `skills/careful-writer/references/default-style.md`.
+The format is described in `skills/doc-feedback/references/style-file-format.md`. With none of these, `careful-writer` applies only its own sentence, paragraph and section checks, and tells you that you have no rules yet.
 
 Only the rules are fetched live. The skills' own instructions come from the installed plugin version.
 
