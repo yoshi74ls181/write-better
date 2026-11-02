@@ -43,13 +43,12 @@ _lock = threading.Lock()
 
 
 # --------------------------------------------------------------------------
-# Minimal markdown -> HTML. Every top-level block gets data-block="<n>" so the
-# UI can store highlight positions as (block, char offset).
+# Minimal markdown -> HTML.
+# Every top-level block gets data-block="<n>" so the UI can store highlight positions as (block, char offset).
 # --------------------------------------------------------------------------
 
-# Inline math: $$..$$ and \[..\] are display style, $..$ and \(..\) inline. A
-# single $ must hug its content and not touch a word or digit, so "$5 and $10"
-# stays text.
+# Inline math: $$..$$ and \[..\] are display style, $..$ and \(..\) inline.
+# A single $ must hug its content and not touch a word or digit, so "$5 and $10" stays text.
 MATH_INLINE_RE = re.compile(
     r"\$\$(.+?)\$\$|\\\[(.+?)\\\]|\\\((.+?)\\\)"
     r"|(?<![\\$\w])\$(?![\s$])((?:\\.|[^$\\])+?)(?<![\s\\])\$(?![\w$])"
@@ -248,8 +247,7 @@ def _scope(body):
     return body.get("scope") if body.get("scope") in SCOPES else "selection"
 
 
-# Files the document embeds (figures, animations, videos), served from the document's
-# folder or below it, so relative paths like figures/fig01.png work.
+# Files the document embeds (figures, animations, videos), served from the document's folder or below it, so relative paths like figures/fig01.png work.
 ASSET_TYPES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp", ".ico", ".avif", ".mp4", ".webm"}
 
 
@@ -433,10 +431,9 @@ def _stop_previous(session):
 
 
 # --------------------------------------------------------------------------
-# Reaching the GUI. The server may run on a remote host reached through VS Code
-# Remote-SSH, often inside tmux, and from here there's no reliable way to tell
-# which screen the user is at. So nothing is opened automatically: `url` prints
-# a localhost address, which VS Code forwards when the user Ctrl+clicks it.
+# Reaching the GUI.
+# The server may run on a remote host reached through VS Code Remote-SSH, often inside tmux, and from here there's no reliable way to tell which screen the user is at.
+# So nothing is opened automatically: `url` prints a localhost address, which VS Code forwards when the user Ctrl+clicks it.
 # --------------------------------------------------------------------------
 
 DEFAULT_PORT = 8765
@@ -566,8 +563,8 @@ def cmd_next(args):
     session = Session(args.session)
     if not session.pending.is_dir():
         sys.exit("no session at %s (start `serve` first)" % session.root)
-    # Guesses for a highlight the user cancelled while the agent was writing them have
-    # neither a pending record nor a saved comment. Nobody will read them.
+    # Guesses for a highlight the user cancelled while the agent was writing them have neither a pending record nor a saved comment.
+    # Nobody will read them.
     saved = {c.get("id") for c in session.comments()}
     for g in session.guesses.glob("*.json"):
         if g.stem not in saved and not (session.pending / g.name).exists():

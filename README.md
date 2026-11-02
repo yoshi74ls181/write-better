@@ -1,6 +1,7 @@
 # write-better
 
-A Claude Code plugin with two skills that share one set of writing rules. Each skill works on its own; together they form a loop where every round of feedback makes the next piece better.
+A Claude Code plugin with two skills that share one set of writing rules.
+Each skill works on its own; together they form a loop where every round of feedback makes the next piece better.
 
 | Skill | What it does |
 |---|---|
@@ -16,43 +17,74 @@ In Claude Code:
 /plugin install write-better@write-better
 ```
 
-The first command registers this repo as a plugin marketplace; the second installs the plugin from it. To work from a local clone instead, pass its path to `/plugin marketplace add`.
+The first command registers this repo as a plugin marketplace; the second installs the plugin from it.
+To work from a local clone instead, pass its path to `/plugin marketplace add`.
 
-Requirements: Python 3.8+ (standard library only) and any modern browser. Math typesetting needs internet access for KaTeX.
+Requirements: Python 3.8+ (standard library only) and any modern browser.
+Math typesetting needs internet access for KaTeX.
 
 ## Where your rules live
 
 Both skills read your rules from the first of these that exists:
 
 1. A path you name in your request.
-2. **A rules repository on GitHub.** Set `WRITING_RULES_REPO` to its `owner/name`, for example in the `env` block of `~/.claude/settings.json`. Each time a skill runs, it fetches the rule files from the latest commit on the repository's `main` branch, reads the ones its `index.md` says apply to the piece, and tells you which commit it used. Offline, it uses the last copy it fetched and says so. `doc-feedback` pushes new rules straight to `main` after you confirm the diff, and the push fails if the file changed since it was read. Reading works without signing in for a public repository; pushing needs the GitHub CLI (`gh`), signed in. [yoshi74ls181/writing-rules](https://github.com/yoshi74ls181/writing-rules) is an example.
+2. **A rules repository on GitHub.**
+   Set `WRITING_RULES_REPO` to its `owner/name`, for example in the `env` block of `~/.claude/settings.json`.
+   Each time a skill runs, it fetches the rule files from the latest commit on the repository's `main` branch, reads the ones its `index.md` says apply to the piece, and tells you which commit it used.
+   Offline, it uses the last copy it fetched and says so.
+   `doc-feedback` pushes new rules straight to `main` after you confirm the diff, and the push fails if the file changed since it was read.
+   Reading works without signing in for a public repository; pushing needs the GitHub CLI (`gh`), signed in.
+   [yoshi74ls181/writing-rules](https://github.com/yoshi74ls181/writing-rules) is an example.
 3. **A single style file**, `WRITING_STYLE_FILE` or else `~/.claude/writing-style.md`.
 
-The format is described in `skills/doc-feedback/references/style-file-format.md`. The rules include the checks careful-writer runs after each sentence, paragraph and section; the skill itself holds only the workflow. With none of these sources, careful-writer still drafts and re-reads one sentence at a time, but has nothing to check against, and tells you so.
+The format is described in `skills/doc-feedback/references/style-file-format.md`.
+The rules include the checks careful-writer runs after each sentence, paragraph and section; the skill itself holds only the workflow.
+With none of these sources, careful-writer still drafts and re-reads one sentence at a time, but has nothing to check against, and tells you so.
 
 Keep every writing preference in your rules, never in the skills: a preference learned from feedback goes to the rules repository or the style file.
 
-Only the rules are fetched live. The skills' own instructions come from the installed plugin version.
+Only the rules are fetched live.
+The skills' own instructions come from the installed plugin version.
 
 ## Typical use
 
-1. Ask for a piece of writing, e.g. "Investigate X and write a report" or "Draft the related-work section." `careful-writer` triggers on writing tasks; you can also ask for it by name.
-2. Say "let me give feedback on this", or name a file, or run `/doc-feedback`. The agent prints a URL; open it (Ctrl+click works in most terminals, including VS Code's).
-3. Select text. A popover shows "Guessing your comment…". Within a few seconds, 3–5 guesses appear. Pick one, edit one, or type your own in the last row, then **Save** (Ctrl+Enter). You can keep highlighting while guesses load; drafts wait in the sidebar.
-4. Click **Finish & send**. The agent summarizes the technical and writing fixes it would make to the document and any style rules it would add or change, then applies them once you approve.
+1. Ask for a piece of writing, e.g. "Investigate X and write a report" or "Draft the related-work section."
+   `careful-writer` triggers on writing tasks; you can also ask for it by name.
+2. Say "let me give feedback on this", or name a file, or run `/doc-feedback`.
+   The agent prints a URL; open it (Ctrl+click works in most terminals, including VS Code's).
+3. Select text.
+   A popover shows "Guessing your comment…".
+   Within a few seconds, 3–5 guesses appear.
+   Pick one, edit one, or type your own in the last row, then **Save** (Ctrl+Enter).
+   You can keep highlighting while guesses load; drafts wait in the sidebar.
+4. Click **Finish & send**.
+   The agent summarizes the technical and writing fixes it would make to the document and any style rules it would add or change, then applies them once you approve.
 
 ## How the live guessing works
 
-The browser never calls a model directly. `scripts/feedback_server.py serve` queues each highlight in a session folder. The agent sits in a blocking `feedback_server.py next` call, which returns as soon as a highlight arrives. The agent then writes guesses using the text, its context from writing it, the style file, and your earlier comments, and goes back to waiting. No API key is needed, and the guesses come from the same agent that wrote the text (or, for your own writing, the agent that has read it). To keep guesses fast, the agent reads the document and notes its weak spots before the session starts, and each guess round is just two tool calls. For even faster guesses at some cost in quality, run `/effort low` before the session and switch back afterwards.
+The browser never calls a model directly.
+`scripts/feedback_server.py serve` queues each highlight in a session folder.
+The agent sits in a blocking `feedback_server.py next` call, which returns as soon as a highlight arrives.
+The agent then writes guesses using the text, its context from writing it, the style file, and your earlier comments, and goes back to waiting.
+No API key is needed, and the guesses come from the same agent that wrote the text (or, for your own writing, the agent that has read it).
+To keep guesses fast, the agent reads the document and notes its weak spots before the session starts, and each guess round is just two tool calls.
+For even faster guesses at some cost in quality, run `/effort low` before the session and switch back afterwards.
 
-Session files go in `<document>.feedback/`. `comments.json` there keeps every comment, along with the guesses you were offered and whether you picked, edited, or replaced one.
+Session files go in `<document>.feedback/`.
+`comments.json` there keeps every comment, along with the guesses you were offered and whether you picked, edited, or replaced one.
 
 ## Remote machines (VS Code Remote-SSH, tmux)
 
-The server runs on the machine where Claude Code runs, which may not be the machine in front of you. The agent can't reliably tell which screen you're at, so it never opens a browser on its own. Instead it prints a `localhost` URL for you to Ctrl+click. Over VS Code Remote-SSH, VS Code forwards the port and opens the page in your local browser, even when Claude Code runs inside tmux. If nothing opens, add the port in VS Code's Ports panel ("Forward a Port").
+The server runs on the machine where Claude Code runs, which may not be the machine in front of you.
+The agent can't reliably tell which screen you're at, so it never opens a browser on its own.
+Instead it prints a `localhost` URL for you to Ctrl+click.
+Over VS Code Remote-SSH, VS Code forwards the port and opens the page in your local browser, even when Claude Code runs inside tmux.
+If nothing opens, add the port in VS Code's Ports panel ("Forward a Port").
 
 The server uses port 8765 (or the next free port), so a port VS Code already forwarded keeps working for later sessions.
 
 ## Math
 
-LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, `\begin{align}` and similar) is typeset with KaTeX, which the page loads from a CDN. Offline, formulas show as their TeX source. A highlight that touches a formula covers the whole formula.
+LaTeX math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`, `\begin{align}` and similar) is typeset with KaTeX, which the page loads from a CDN.
+Offline, formulas show as their TeX source.
+A highlight that touches a formula covers the whole formula.
